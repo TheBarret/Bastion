@@ -1,11 +1,13 @@
-﻿Public Enum Tokens As Byte
+﻿''' <summary>
+''' These token types define what types of tokens are recognized by the parser.
+''' </summary>
+Public Enum Tokens As Byte
     T_Null = &H0
     T_String
     T_Integer
     T_Float
     T_Bool
     T_Identifier
-
     T_Stream
 
     T_Plus
@@ -13,6 +15,7 @@
     T_Mult
     T_Div
     T_Mod
+
     T_Assign
 
     T_Equal

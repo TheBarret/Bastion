@@ -25,7 +25,7 @@
             ElseIf (Boolean.TryParse(value.ToString, result)) Then
                 Return result
             End If
-            rt.Session.Log(String.Format("[error] Unable to convert '{0}' to boolean (default: false)", value))
+            rt.Log(String.Format("[error] Unable to convert '{0}' to boolean (default: false)", value))
             Return result
         End Function
 
@@ -35,7 +35,7 @@
             If (Integer.TryParse(value.ToString, Environment.Integers, Environment.Culture, result)) Then
                 Return result
             End If
-            rt.Session.Log(String.Format("[error] Unable to convert '{0}' to integer (default: 0)", value))
+            rt.Log(String.Format("[error] Unable to convert '{0}' to integer (default: 0)", value))
             Return 0
         End Function
 
@@ -45,7 +45,7 @@
             If (Double.TryParse(value.ToString, Environment.Floats, Environment.Culture, result)) Then
                 Return result
             End If
-            rt.Session.Log(String.Format("[error] Unable to convert '{0}' to double (default: 0)", value))
+            rt.Log(String.Format("[error] Unable to convert '{0}' to double (default: 0)", value))
             Return 0
         End Function
     End Class

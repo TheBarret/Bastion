@@ -5,36 +5,54 @@ Imports Bastion.Expressions.Types
 Imports System.Reflection
 
 Public Class Runtime
-    Inherits Scope
+    Inherits Session
     Implements IDisposable
-    Public Property Session As Sessions
 
-    Sub New(Context As String)
-        Me.Session = New Sessions(Me, Context)
+    ''' <summary>
+    ''' Constructor of runtime.
+    ''' </summary>
+    ''' <param name="script"></param>
+    Sub New(script As String)
+        MyBase.New(script)
+        Me.CreateTimer("execution_timer", True)
     End Sub
 
+    ''' <summary>
+    ''' Executes the script.            
+    ''' </summary>
+    ''' <returns></returns>
     Public Function Evaluate() As TValue
         Try
-            If (Me.Session.HasContext) Then
-                Return Me.Resolve(New Ast(Me).Analyze(New Lexer(Me).Analyze(Me.Session.Context)))
+            If (Me.HasContext) Then
+                Return Me.Resolve(New Ast(Me).Analyze(New Lexer(Me).Analyze(Me.Context)))
             End If
         Catch ex As Exception
-            Me.Session.Log(String.Format("[error] Execution stopped ({0})", ex.Message))
+            Me.Log(String.Format("[error] Execution stopped ({0})", ex.Message))
             Throw
         End Try
         Return TValue.Null
     End Function
 
+
+    ''' <summary>
+    ''' Scans type for exposed methods.
+    ''' </summary>
+    ''' <param name="obj"></param>
     Public Sub Scan(obj As Type)
-        Me.Session.Log(String.Format("Scanning {0}...", obj.FullName))
+        Me.Log(String.Format("Scanning {0}...", obj.FullName))
         For Each m As MethodInfo In obj.GetMethods(BindingFlags.Public Or BindingFlags.Static)
             For Each attr As ScriptFunction In m.GetCustomAttributes.OfType(Of ScriptFunction)()
-                Me.Session.Log(String.Format("<- {0}() ({1})", attr.Reference, m))
+                Me.Log(String.Format("<- {0}() ({1})", attr.Reference, m))
                 Me.SetVariable(attr.Reference, New TValue(obj.CreateDelegate(m.Name)))
             Next
         Next
     End Sub
 
+    ''' <summary>
+    ''' Resolves an expression to a value.
+    ''' </summary>
+    ''' <param name="e"></param>
+    ''' <returns></returns>
     Private Function Resolve(e As List(Of Expression)) As TValue
         Dim result As TValue = TValue.Null
         For Each expr In e
@@ -43,9 +61,15 @@ Public Class Runtime
         Return result
     End Function
 
+
+    ''' <summary>
+    ''' Resolves an expression to a value.
+    ''' </summary>
+    ''' <param name="e"></param>
+    ''' <returns></returns>
     Private Function Resolve(e As Expression) As TValue
         Try
-            Me.Session.Enter()
+            Me.Enter()
             If (TypeOf e Is Null) Then
                 Return TValue.Null
             ElseIf (TypeOf e Is [String]) Then
@@ -73,12 +97,17 @@ Public Class Runtime
             End If
             Throw New ScriptError(String.Format("undefined expression type '{0}'", e.GetType.Name))
         Finally
-            Me.Session.Leave()
+            Me.Leave()
         End Try
     End Function
 
+    ''' <summary>
+    ''' Resolves an expression to a value.
+    ''' </summary>
+    ''' <param name="e"></param>
+    ''' <returns></returns>
     Private Function Resolve(e As ForLoop) As TValue
-        Me.Session.Log(String.Format("[Loop] -> {0}", e))
+        Me.Log(String.Format("[Loop] -> {0}", e))
         Dim init As TValue = Me.Resolve(e.Init), condition As TValue
         Do
             condition = Me.Resolve(e.Condition)
@@ -96,8 +125,14 @@ Public Class Runtime
         Return TValue.Null
     End Function
 
+    ''' <summary>
+    ''' Resolves an expression to a value.
+    ''' </summary>
+    ''' <param name="e"></param>
+    ''' <param name="domain"></param>
+    ''' <returns></returns>
     Private Function Resolve(e As Expressions.Library, Optional domain As String = "Bastion.Library") As TValue
-        Me.Session.Log(String.Format("[Library] Looking for {0} ", e))
+        Me.Log(String.Format("[Library] Looking for {0} ", e))
         Dim ref As String = Parsing.GetValue(e.Name)
         For Each t As Type In Assembly.GetExecutingAssembly.GetTypes
             If (t.IsClass AndAlso t.Namespace = domain AndAlso t.Name.Equals(ref, StringComparison.CurrentCultureIgnoreCase)) Then
@@ -108,8 +143,13 @@ Public Class Runtime
         Return New TValue(False)
     End Function
 
+    ''' <summary>
+    ''' Resolves an expression to a value.
+    ''' </summary>
+    ''' <param name="e"></param>
+    ''' <returns></returns>
     Private Function Resolve(e As Binary) As TValue
-        Me.Session.Log(String.Format("[binary] -> {0} ", e))
+        Me.Log(String.Format("[binary] -> {0} ", e))
         If (e.Left IsNot Nothing AndAlso e.Right IsNot Nothing) Then
             If (e.Op = Tokens.T_Assign) Then
                 Dim operand As TValue = Me.Resolve(e.Right)
@@ -149,7 +189,7 @@ Public Class Runtime
                 ElseIf (e.Op = Tokens.T_EqualOrLesser) Then
                     result = Operators.IsEqualOrLesser(left, right)
                 End If
-                Me.Session.Log(String.Format("[yield] <- ({0} {1} {2}) = {3}", left, e.Op.Name, right, result))
+                Me.Log(String.Format("[yield] <- ({0} {1} {2}) = {3}", left, e.Op.Name, right, result))
                 Return result
             End If
             Throw New ScriptError(String.Format("undefined expression type '{0}'", e.GetType.Name))
@@ -157,8 +197,13 @@ Public Class Runtime
         Throw New ScriptError("invalid expression")
     End Function
 
+    ''' <summary>
+    ''' Resolves an expression to a value.
+    ''' </summary>
+    ''' <param name="e"></param>
+    ''' <returns></returns>
     Private Function Resolve(e As Unary) As TValue
-        Me.Session.Log(String.Format("[unary] -> {0}", e))
+        Me.Log(String.Format("[unary] -> {0}", e))
         If (e.Operand IsNot Nothing) Then
             If (e.Op = Tokens.T_Negate) Then
                 Return Operators.Not(Me.Resolve(e.Operand))
@@ -172,8 +217,13 @@ Public Class Runtime
         Throw New ScriptError("invalid expression")
     End Function
 
+    ''' <summary>
+    ''' Resolves an expression to a value.
+    ''' </summary>
+    ''' <param name="e"></param>
+    ''' <returns></returns>
     Private Function Resolve(e As Conditional) As TValue
-        Me.Session.Log(String.Format("[conditional] -> {0}", e))
+        Me.Log(String.Format("[conditional] -> {0}", e))
         Dim condition As TValue = Me.Resolve(e.Condition)
         If (condition.IsBoolean) Then
             If (condition.Cast(Of Boolean)()) Then
@@ -187,15 +237,25 @@ Public Class Runtime
         End If
     End Function
 
+    ''' <summary>
+    ''' Resolves an expression to a value.
+    ''' </summary>
+    ''' <param name="e"></param>
+    ''' <returns></returns>
     Private Function Resolve(e As Identifier) As TValue
-        Me.Session.Log(String.Format("[variable] -> {0}", e))
+        Me.Log(String.Format("[variable] -> {0}", e))
         Dim name As String = e.Value
         If (Me.IsSet(name)) Then Return Me.GetVariable(name)
         Throw New ScriptError(String.Format("undefined variable '{0}'", name))
     End Function
 
+    ''' <summary>
+    ''' Resolves an expression to a value.
+    ''' </summary>
+    ''' <param name="e"></param>
+    ''' <returns></returns>
     Private Function Resolve(e As [Call]) As TValue
-        Me.Session.Log(String.Format("[call] -> {0}", e))
+        Me.Log(String.Format("[call] -> {0}", e))
         If (Me.IsSet(Parsing.GetValue(e.Name))) Then
             Dim func As TValue = Me.Resolve(e.Name)
             If (func.IsDelegate) Then
@@ -205,27 +265,37 @@ Public Class Runtime
         Throw New ScriptError(String.Format("Undefined function '{0}()'", e.Name))
     End Function
 
+    ''' <summary>
+    ''' Resolves an expression to a value.
+    ''' </summary>
+    ''' <param name="e"></param>
+    ''' <param name="params"></param>
+    ''' <returns></returns>
     Private Function Resolve(e As [Delegate], params As List(Of TValue)) As TValue
-        Me.Session.Log(String.Format("[delegate] -> {0}", e.Method))
+        Me.Log(String.Format("[delegate] -> {0}", e.Method))
         Dim parameters As New List(Of Object) From {Me}
         parameters.AddRange(params.Select(Function(x) x.Unwrap).ToList)
         If (Casting.Validate(Me, e, parameters)) Then
             Dim result As TValue = New TValue(e.Method.Invoke(Nothing, parameters.ToArray))
             If (Not result.IsNull) Then
-                Me.Session.Log(String.Format("[yield] <- {0} ({1})", result.Value, result.GetObjectType.Name))
+                Me.Log(String.Format("[yield] <- {0} ({1})", result.Value, result.GetObjectType.Name))
             End If
             Return result
         End If
         Return TValue.Null
     End Function
 
+    ''' <summary>
+    ''' Resolves a list of expressions to a list of values.
+    ''' </summary>
+    ''' <param name="e"></param>
+    ''' <returns></returns>
     Private Function ResolveParameters(e As List(Of Expression)) As List(Of TValue)
         Return e.Select(Function(exp) Me.Resolve(exp)).ToList
     End Function
 
-#Region "Internals"
     ''' <summary>
-    ''' Unqiue (psuedo) GUID for each instance
+    ''' Creates unique ID for runtime instance
     ''' </summary>
     Private m_reference As String = Guid.NewGuid.ToString
     Public ReadOnly Property Reference As String
@@ -233,16 +303,20 @@ Public Class Runtime
             Return Me.m_reference
         End Get
     End Property
+
     ''' <summary>
-    ''' IDisposable overrides
+    ''' Disposes runtime instance
     ''' </summary>
     Private disposedValue As Boolean
     Protected Overloads Sub Dispose(disposing As Boolean)
-        Me.Session.Timer.Stop()
-        Me.Session.Log(String.Format("Disposing [Total: {0}]", Me.Session.Timer.Elapsed.Duration))
+        Me.Log(String.Format("Disposing [Total: {0}]", Me.DestroyTimer("execution_timer").Elapsed.Duration))
         If Not disposedValue Then
             If disposing Then
-                Me.DisposeVariables()
+                For Each entry In Me
+                    entry.Value.Dispose()
+                Next
+                Me.Clear()
+                Me.Logger.Close()
             End If
             Me.disposedValue = True
         End If
@@ -252,5 +326,6 @@ Public Class Runtime
         Me.Dispose(True)
         GC.SuppressFinalize(Me)
     End Sub
-#End Region
+
+
 End Class

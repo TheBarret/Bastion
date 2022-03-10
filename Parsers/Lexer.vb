@@ -3,7 +3,6 @@ Imports System.Text.RegularExpressions
 Namespace Parsers
     Public Class Lexer
         Implements IDisposable
-        Private disposedValue As Boolean
         Private Property Length As Integer
         Private Property Flag As Boolean
         Private Property Line As Integer
@@ -19,10 +18,9 @@ Namespace Parsers
         End Sub
 
         Public Function Analyze(context As String) As List(Of Token)
-            Me.Parent.Session.Log("Beginning lexical analysis ...")
+            Me.Parent.Log("Beginning lexical analysis ...")
             If (Not String.IsNullOrEmpty(context)) Then
-                Dim sw As New Stopwatch
-                sw.Start()
+                Me.Parent.CreateTimer("lexer_timer", True)
                 Me.Length = context.Length
                 Using Definitions As New Syntax
                     Do
@@ -48,11 +46,10 @@ Namespace Parsers
                         Next
                         If (Not Me.Flag) Then
                             Throw New ScriptError(String.Format("Undefined symbol '{0}' at index {1} line {2}", context(0), Me.Index, Me.Line))
-                        End If
+            End If
                     Loop Until Index = Me.Length
                 End Using
-                sw.Stop()
-                Me.Parent.Session.Log(String.Format("Finished in {0}", sw.Elapsed.Duration))
+                Me.Parent.Log(String.Format("Finished in {0}", Me.Parent.DestroyTimer("lexer_timer").Elapsed.Duration))
                 Me.Stream.Add(Token.Create(Tokens.T_EndOfFile, String.Empty, Me.Line, Me.Index))
                 Return Lexer.Remove(Me.Stream, Tokens.T_Space, Tokens.T_Newline, Tokens.T_BlockComment, Tokens.T_LineComment)
             End If
@@ -65,6 +62,7 @@ Namespace Parsers
             End Get
         End Property
 
+        Private disposedValue As Boolean
         Protected Overridable Sub Dispose(disposing As Boolean)
             If Not disposedValue Then
                 If disposing Then

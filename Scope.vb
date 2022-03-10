@@ -1,6 +1,5 @@
-﻿Public Class Scope
+﻿Public MustInherit Class Scope
     Inherits Dictionary(Of String, TValue)
-    Private disposedValue As Boolean
 
     Public Sub SetVariable(Name As String, value As TValue)
         If (Me.ContainsKey(Name.ToLower)) Then
@@ -23,10 +22,4 @@
         Return Me.ContainsKey(Name.ToLower)
     End Function
 
-    Public Sub DisposeVariables()
-        For Each entry In Me
-            entry.Value.Dispose()
-        Next
-        Me.Clear()
-    End Sub
 End Class

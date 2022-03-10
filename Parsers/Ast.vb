@@ -16,17 +16,15 @@ Namespace Parsers
         End Sub
 
         Public Function Analyze(stream As List(Of Token)) As List(Of Expression)
-            Me.Parent.Session.Log("Building abstract syntax tree ...")
-            Dim sw As New Stopwatch
-            sw.Start()
+            Me.Parent.Log("Building abstract syntax tree ...")
+            Me.Parent.CreateTimer("ast_timer", True)
             If (stream.Count > 0) Then
                 Me.Index = 0
                 Me.Stream = stream
                 Me.Current = stream.First
                 Me.Parse()
             End If
-            sw.Stop()
-            Me.Parent.Session.Log(String.Format("Finished in {0}", sw.Elapsed.Duration))
+            Me.Parent.Log(String.Format("Finished in {0}", Me.Parent.DestroyTimer("ast_time").Elapsed.Duration))
             Return Me
         End Function
 
@@ -55,7 +53,7 @@ Namespace Parsers
                     End If
                 ElseIf (e Is Nothing) Then
                     Throw New ScriptError(String.Format("Unexpected '{0}' at line {1} ", Me.Current.Type, Me.Current.Line))
-                End If
+            End If
             End If
             Return e
         End Function
