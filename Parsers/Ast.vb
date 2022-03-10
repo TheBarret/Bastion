@@ -24,7 +24,7 @@ Namespace Parsers
                 Me.Current = stream.First
                 Me.Parse()
             End If
-            Me.Parent.Log(String.Format("Finished in {0}", Me.Parent.DestroyTimer("ast_time").Elapsed.Duration))
+            Me.Parent.Log(String.Format("Finished in {0}", Me.Parent.DestroyTimer("ast_timer").Elapsed.Duration))
             Return Me
         End Function
 

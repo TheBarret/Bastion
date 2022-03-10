@@ -36,10 +36,16 @@ Public MustInherit Class Session
         Return New StackTrace().GetFrame(level).GetMethod()
     End Function
 
+    ''' <summary>
+    ''' Increment the level of the session.
+    ''' </summary>
     Public Sub Enter()
         Me.Level += 1
     End Sub
 
+    ''' <summary>
+    ''' Decrement the level of the session.
+    ''' </summary>
     Public Sub Leave()
         Me.Level -= 1
     End Sub
@@ -113,6 +119,10 @@ Public MustInherit Class Session
         Throw New Exception(String.Format("no such timer defined '{0}'", name))
     End Function
 
+    ''' <summary>
+    ''' Gets the context of the session.
+    ''' </summary>
+    ''' <returns></returns>
     Private m_context As String
     Public ReadOnly Property Context As String
         Get
@@ -120,6 +130,10 @@ Public MustInherit Class Session
         End Get
     End Property
 
+    ''' <summary>
+    ''' Returns true if context contains anything
+    ''' </summary>
+    ''' <returns></returns>
     Public ReadOnly Property HasContext As Boolean
         Get
             Return Me.Context.Length > 0

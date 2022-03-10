@@ -4,7 +4,7 @@ Namespace Library
     Public Class IO
         <ScriptFunction("fopen")>
         Public Shared Function OpenFileStream(rt As Runtime, fn As String) As Object
-            If (Environment.IsWritable(fn)) Then
+            If (Environment.HasAccess(fn)) Then
                 If (File.Exists(fn)) Then
                     Return IO.OpenFileStream(fn, False)
                 Else

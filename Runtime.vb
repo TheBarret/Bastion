@@ -2,6 +2,7 @@
 Imports Bastion.Parsers
 Imports Bastion.Expressions
 Imports Bastion.Expressions.Types
+
 Imports System.Reflection
 
 Public Class Runtime
@@ -278,7 +279,7 @@ Public Class Runtime
         If (Casting.Validate(Me, e, parameters)) Then
             Dim result As TValue = New TValue(e.Method.Invoke(Nothing, parameters.ToArray))
             If (Not result.IsNull) Then
-                Me.Log(String.Format("[yield] <- {0} ({1})", result.Value, result.GetObjectType.Name))
+                Me.Log(String.Format("[yield] <- {0} ({1})", result.Value.ToString.Truncate(25, "..."), result.GetObjectType.Name))
             End If
             Return result
         End If
@@ -309,7 +310,7 @@ Public Class Runtime
     ''' </summary>
     Private disposedValue As Boolean
     Protected Overloads Sub Dispose(disposing As Boolean)
-        Me.Log(String.Format("Disposing [Total: {0}]", Me.DestroyTimer("execution_timer").Elapsed.Duration))
+        Me.Log(String.Format("Disposing [execution: {0}]", Me.DestroyTimer("execution_timer").Elapsed.Duration))
         If Not disposedValue Then
             If disposing Then
                 For Each entry In Me
