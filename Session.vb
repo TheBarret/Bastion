@@ -1,19 +1,28 @@
-﻿Imports Bastion.Helpers
+﻿Imports Bastion.Expressions
+Imports Bastion.Helpers
 Imports System.Reflection
 
 Public MustInherit Class Session
     Inherits Scope
-    Public Property Level As Integer
+    Public Property Name As String
     Public Property Debug As Boolean
     Public Property Logger As Logger
     Public Property Timers As Dictionary(Of String, Stopwatch)
 
-    Sub New(context As String)
-        Me.Level = 1
+    Sub New(context As String, Optional Openlog As Boolean = True)
+        Me.Name = Uid.Generate(8)
         Me.Debug = True
-        Me.m_context = context
+        Me.m_script = context
         Me.Timers = New Dictionary(Of String, Stopwatch)
-        Me.Logger = New Logger
+        If (Openlog) Then Me.Logger = New Logger
+    End Sub
+
+    Sub New(ast As List(Of Expression), Optional Openlog As Boolean = True)
+        Me.Name = Uid.Generate(8)
+        Me.Debug = True
+        Me.m_ast = ast
+        Me.Timers = New Dictionary(Of String, Stopwatch)
+        If (Openlog) Then Me.Logger = New Logger
     End Sub
 
     ''' <summary>
@@ -23,7 +32,7 @@ Public MustInherit Class Session
     Public Sub Log(message As String)
         If (Me.Debug) Then
             Dim mb As MethodBase = Me.GetStackFrame(2)
-            Me.Logger.WriteLine(String.Format("[{0}] [{1}.{2}] {3}", Me.Level, mb.DeclaringType.Name, mb.Name, message))
+            Me.Logger.WriteLine(String.Format("[{0}] [{1}] [{2}.{3}] {4}", Operators.Repeat("*", Me.Level), Me.Name, mb.DeclaringType.Name, mb.Name, message))
         End If
     End Sub
 
@@ -35,20 +44,6 @@ Public MustInherit Class Session
     Public Function GetStackFrame(level As Integer) As MethodBase
         Return New StackTrace().GetFrame(level).GetMethod()
     End Function
-
-    ''' <summary>
-    ''' Increment the level of the session.
-    ''' </summary>
-    Public Sub Enter()
-        Me.Level += 1
-    End Sub
-
-    ''' <summary>
-    ''' Decrement the level of the session.
-    ''' </summary>
-    Public Sub Leave()
-        Me.Level -= 1
-    End Sub
 
     ''' <summary>
     ''' Creates and starts a timer.
@@ -120,13 +115,13 @@ Public MustInherit Class Session
     End Function
 
     ''' <summary>
-    ''' Gets the context of the session.
+    ''' Gets the context of the session in AST format.
     ''' </summary>
     ''' <returns></returns>
-    Private m_context As String
-    Public ReadOnly Property Context As String
+    Private m_ast As List(Of Expression)
+    Public ReadOnly Property Ast As List(Of Expression)
         Get
-            Return Me.m_context
+            Return Me.m_ast
         End Get
     End Property
 
@@ -134,9 +129,30 @@ Public MustInherit Class Session
     ''' Returns true if context contains anything
     ''' </summary>
     ''' <returns></returns>
-    Public ReadOnly Property HasContext As Boolean
+    Public ReadOnly Property HasAst As Boolean
         Get
-            Return Me.Context.Length > 0
+            Return Me.Ast.Count > 0
+        End Get
+    End Property
+
+    ''' <summary>
+    ''' Gets the context of the session.
+    ''' </summary>
+    ''' <returns></returns>
+    Private m_script As String
+    Public ReadOnly Property Script As String
+        Get
+            Return Me.m_script
+        End Get
+    End Property
+
+    ''' <summary>
+    ''' Returns true if context contains anything
+    ''' </summary>
+    ''' <returns></returns>
+    Public ReadOnly Property HasScript As Boolean
+        Get
+            Return Me.Script.Length > 0
         End Get
     End Property
 

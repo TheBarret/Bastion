@@ -50,6 +50,8 @@ Public Class TValue
             Return Tokens.T_Float
         ElseIf (TypeOf Me.Value Is Boolean) Then
             Return Tokens.T_Bool
+        ElseIf (TypeOf Me.Value Is [Function]) Then
+            Return Tokens.T_Function
         ElseIf (TypeOf Me.Value Is [Delegate]) Then
             Return Tokens.T_Delegate
         ElseIf (TypeOf Me.Value Is Stream) Then
@@ -109,6 +111,14 @@ Public Class TValue
     ''' <returns></returns>
     Public Function IsDelegate() As Boolean
         Return Me.GetObjectType = Tokens.T_Delegate
+    End Function
+
+    ''' <summary>
+    ''' Returns true if the value is a script function
+    ''' </summary>
+    ''' <returns></returns>
+    Public Function IsScriptFunction() As Boolean
+        Return Me.GetObjectType = Tokens.T_Function
     End Function
 
     ''' <summary>

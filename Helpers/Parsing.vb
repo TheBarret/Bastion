@@ -1,6 +1,7 @@
 ﻿Imports Bastion.Parsers
 Imports Bastion.Expressions
 Imports Bastion.Expressions.Types
+Imports Bastion.Library
 
 Namespace Helpers
     Public Class Parsing
@@ -27,7 +28,7 @@ Namespace Helpers
                     parent.Next()
                     Exit Do
                 ElseIf (parent.Current.Type = Tokens.T_EndOfFile) Then
-                    Throw New ScriptError(String.Format("Unexpected EOF at line {0}", parent.Current.Line))
+                    Throw New ScriptError(String.Format("unexpected EOF at line {0}", parent.Current.Line))
                 Else
                     body.Add(parent.ParseStatement(ExpectEnd))
                 End If
@@ -37,28 +38,12 @@ Namespace Helpers
 
         Public Shared Function ParseCondition(parent As Ast) As Expression
             parent.Next()
-            Dim e As New Conditional(parent.ParseStatement(False)) With {.True = Parsing.ParseBraceBlock(parent)}
+            Dim e As New Conditional(parent.ParseStatement(False)) With {.True = Parsing.GetBraceBlock(parent)}
             If (parent.Current.Type = Tokens.T_Else) Then
                 parent.Next()
-                e.False.AddRange(Parsing.ParseBraceBlock(parent))
+                e.False.AddRange(Parsing.GetBraceBlock(parent))
             End If
             Return e
-        End Function
-
-        Public Shared Function ParseBraceBlock(parent As Ast, Optional ExpectEnd As Boolean = True) As List(Of Expression)
-            Dim body As New List(Of Expression)
-            parent.Match(Tokens.T_BraceOpen)
-            Do While True
-                If (parent.Current.Type = Tokens.T_BraceClose) Then
-                    parent.Next()
-                    Exit Do
-                ElseIf (parent.Current.Type = Tokens.T_EndOfFile) Then
-                    Throw New ScriptError(String.Format("Unexpected end of file at line {0}", parent.Current.Line))
-                Else
-                    body.Add(parent.ParseStatement(ExpectEnd))
-                End If
-            Loop
-            Return body
         End Function
 
         Public Shared Function ParseForLoop(parent As Ast) As Expression
@@ -116,12 +101,34 @@ Namespace Helpers
             End Try
         End Function
 
+        Public Shared Function GetHexadecimal(parent As Ast, signed As Boolean, Optional op As Tokens = Tokens.T_Null) As Expression
+            Try
+                Dim value As Integer = Convert.ToInt32(parent.Current.Value, 16)
+                If (signed And op = Tokens.T_Minus) Then
+                    Return New [Integer](value * -1)
+                End If
+                Return New [Integer](value * 1)
+            Finally
+                parent.Next()
+            End Try
+        End Function
+
         Public Shared Function GetIdentifier(parent As Ast) As Expression
             Try
                 Return New Identifier(parent.Current.Value)
             Finally
                 parent.Next()
             End Try
+        End Function
+
+        Public Shared Function GetFunction(parent As Ast) As Expression
+            parent.Next()
+            Return New [Function](New Identifier(String.Format("func_{0}", Uid.Generate(8))), Parsing.GetTuples(parent, Tokens.T_ParenthesisOpen, Tokens.T_ParenthesisClose), Parsing.GetBraceBlock(parent))
+        End Function
+
+        Public Shared Function GetReturn(parent As Ast) As Expression
+            parent.Next()
+            Return New [Return](parent.ParseStatement(True))
         End Function
 
         Public Shared Function GetParenthesis(parent As Ast) As Expression

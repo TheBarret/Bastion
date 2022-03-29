@@ -3,6 +3,7 @@ Imports System.Globalization
 Imports System.Security.Principal
 Imports System.IO
 Imports System.Security.AccessControl
+Imports Bastion.Helpers
 
 Public Class Environment
 
@@ -147,5 +148,51 @@ Public Class Environment
         If allow Then Return True
 
         Return inheritedAllow AndAlso Not inheritedDeny
+    End Function
+    ''' <summary>
+    ''' Validates the parameters of the delegate and tries to auto convert the parameters to the corresponding types
+    ''' </summary>
+    ''' <param name="rt"></param>
+    ''' <param name="e"></param>
+    ''' <param name="params"></param>
+    ''' <returns></returns>
+    Public Shared Function Validate(rt As Runtime, e As [Delegate], params As List(Of Object)) As Boolean
+        If (e.Method.GetParameters.Count <> params.Count) Then
+            rt.Log(String.Format("Parameter count mismatch for '{0}()'", e.Method.Name))
+            Return False
+        End If
+        For i As Integer = 0 To e.Method.GetParameters.Count - 1
+            If (e.Method.GetParameters(i).ParameterType = GetType(Object)) Then Continue For
+            If (e.Method.GetParameters(i).ParameterType <> params(i).GetType) Then
+                If Not Environment.ConvertType(rt, params(i), e.Method.GetParameters(i).ParameterType, params(i)) Then
+                    rt.Log(String.Format("Parameter type mismatch for '{0}()'", e.Method.Name))
+                    Return False
+                End If
+            End If
+        Next
+        Return True
+    End Function
+
+    ''' <summary>
+    ''' Attempts to convert the given object to the given type and makes a log entry of the result.
+    ''' </summary>
+    ''' <typeparam name="T"></typeparam>
+    ''' <param name="rt"></param>
+    ''' <param name="obj"></param>
+    ''' <param name="type"></param>
+    ''' <param name="result"></param>
+    ''' <returns></returns>
+    Public Shared Function ConvertType(Of T)(rt As Runtime, obj As Object, type As Type, ByRef result As T) As Boolean
+        Try
+            If (obj.GetType = type) Then
+                result = DirectCast(obj, T)
+                Return True
+            End If
+            rt.Log(String.Format("Attempting to change type '{0}' to '{1}'", obj.GetType.Name, type.Name))
+            result = DirectCast(Convert.ChangeType(obj, type), T)
+            Return True
+        Catch ex As Exception
+            Return False
+        End Try
     End Function
 End Class

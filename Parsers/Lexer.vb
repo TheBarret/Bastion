@@ -7,10 +7,10 @@ Namespace Parsers
         Private Property Flag As Boolean
         Private Property Line As Integer
         Private Property Index As Integer
-        Private Property Parent As Runtime
+        Private Property Parent As Session
         Private Property Stream As List(Of Token)
 
-        Sub New(parent As Runtime)
+        Sub New(parent As Session)
             Me.Line = 1
             Me.Index = 0
             Me.Stream = New List(Of Token)
@@ -45,8 +45,8 @@ Namespace Parsers
                             If (Me.Flag) Then Exit For
                         Next
                         If (Not Me.Flag) Then
-                            Throw New ScriptError(String.Format("Undefined symbol '{0}' at index {1} line {2}", context(0), Me.Index, Me.Line))
-            End If
+                            Throw New ScriptError(String.Format("undefined symbol '{0}' at index {1} line {2}", context(0), Me.Index, Me.Line))
+                        End If
                     Loop Until Index = Me.Length
                 End Using
                 Me.Parent.Log(String.Format("Finished in {0}", Me.Parent.DestroyTimer("lexer_timer").Elapsed.Duration))

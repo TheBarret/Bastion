@@ -6,12 +6,12 @@ Namespace Parsers
         Inherits List(Of Expression)
         Implements IDisposable
         Private disposedValue As Boolean
-        Public Property Parent As Runtime
+        Public Property Parent As Session
         Public Property Index As Integer
         Public Property Current As Token
         Public Property Stream As List(Of Token)
 
-        Sub New(parent As Runtime)
+        Sub New(parent As Session)
             Me.Parent = parent
         End Sub
 
@@ -30,7 +30,8 @@ Namespace Parsers
 
         Public Sub Parse()
             Do Until Me.Current.Type = Tokens.T_EndOfFile
-                Me.Add(Me.ParseStatement(True))
+                Dim result As Expression = Me.ParseStatement(True)
+                If (result IsNot Nothing) Then Me.Add(result)
             Loop
         End Sub
 
@@ -40,7 +41,7 @@ Namespace Parsers
                 e = Parsing.ParseCondition(Me)
             ElseIf (Me.Current.Type = Tokens.T_For) Then
                 e = Parsing.ParseForLoop(Me)
-            ElseIf (Me.Current.Type = Tokens.T_use) Then
+            ElseIf (Me.Current.Type = Tokens.T_Use) Then
                 e = Parsing.GetLibrary(Me)
             Else
                 If (ExpectEnd) Then
@@ -49,11 +50,11 @@ Namespace Parsers
                     ElseIf (Me.Current.Type = Tokens.T_EndOfFile) Then
                         Me.Next()
                     Else
-                        Throw New ScriptError(String.Format("Expecting end of statement at line {1} ", Me.Current.Type, Me.Current.Line))
+                        Throw New ScriptError(String.Format("expecting end of statement at line {1} ", Me.Current.Type, Me.Current.Line))
                     End If
                 ElseIf (e Is Nothing) Then
-                    Throw New ScriptError(String.Format("Unexpected '{0}' at line {1} ", Me.Current.Type, Me.Current.Line))
-            End If
+                    Throw New ScriptError(String.Format("enexpected '{0}' at line {1} ", Me.Current.Type, Me.Current.Line))
+                End If
             End If
             Return e
         End Function
@@ -103,7 +104,12 @@ Namespace Parsers
 
         Private Function ParsePostfixUnary() As Expression
             Dim e As Expression = Me.ParseLogicalXor()
-            '//TODO
+            While (Me.Current.Type = Tokens.T_Increment) OrElse
+                  (Me.Current.Type = Tokens.T_Decrement)
+                Dim op As Tokens = Me.Current.Type
+                Me.Next()
+                e = New Unary(e, op, False)
+            End While
             Return e
         End Function
 
@@ -141,7 +147,8 @@ Namespace Parsers
 
         Private Function ParsePrefixUnary() As Expression
             Dim e As Expression = Me.ParseCall()
-            While (Me.Current.Type = Tokens.T_Negate)
+            While (Me.Current.Type = Tokens.T_Negate) OrElse
+                  (Me.Current.Type = Tokens.T_Return)
                 Dim Op As Tokens = Me.Current.Type
                 Me.Next()
                 e = New Unary(Me.ParseStatement(False), Op, True)
@@ -169,6 +176,10 @@ Namespace Parsers
                 e = Parsing.GetInteger(Me, False)
             ElseIf (Me.Current.Type = Tokens.T_Float) Then
                 e = Parsing.GetFloat(Me, False)
+            ElseIf (Me.Current.Type = Tokens.T_Hexadecimal) Then
+                e = Parsing.GetHexadecimal(Me, False)
+            ElseIf (Me.Current.Type = Tokens.T_Function) Then
+                e = Parsing.GetFunction(Me)
             ElseIf (Me.Current.Type = Tokens.T_Null) Then
                 e = Parsing.GetNull(Me)
             ElseIf (Me.Current.Type = Tokens.T_ParenthesisOpen) Then
@@ -179,6 +190,8 @@ Namespace Parsers
                     e = Parsing.GetInteger(Me, True, Tokens.T_Minus)
                 ElseIf (Me.Current.Type = Tokens.T_Float) Then
                     e = Parsing.GetFloat(Me, True, Tokens.T_Minus)
+                ElseIf (Me.Current.Type = Tokens.T_Hexadecimal) Then
+                    e = Parsing.GetHexadecimal(Me, True, Tokens.T_Minus)
                 ElseIf (Me.Current.Type = Tokens.T_Identifier) Then
                     e = Parsing.GetSignedIdentifier(Me, Tokens.T_Minus)
                 ElseIf (Me.Current.Type = Tokens.T_ParenthesisOpen) Then
@@ -190,6 +203,8 @@ Namespace Parsers
                     e = Parsing.GetInteger(Me, True, Tokens.T_Plus)
                 ElseIf (Me.Current.Type = Tokens.T_Float) Then
                     e = Parsing.GetFloat(Me, True, Tokens.T_Plus)
+                ElseIf (Me.Current.Type = Tokens.T_Hexadecimal) Then
+                    e = Parsing.GetHexadecimal(Me, True, Tokens.T_Plus)
                 ElseIf (Me.Current.Type = Tokens.T_Identifier) Then
                     e = Parsing.GetSignedIdentifier(Me, Tokens.T_Plus)
                 ElseIf (Me.Current.Type = Tokens.T_ParenthesisOpen) Then

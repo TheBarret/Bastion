@@ -1,6 +1,14 @@
 ﻿Imports System.Text
 
+#Disable Warning BC42304
+
 Public NotInheritable Class Operators
+    ''' <summary>
+    ''' Returns the sum of a + b    
+    ''' </summary>
+    ''' <param name="a"></param>
+    ''' <param name="b"></param>
+    ''' <returns></returns>
     Public Shared Function Addition(a As TValue, b As TValue) As TValue
         If (a.GetObjectType = Tokens.T_Integer And b.GetObjectType = Tokens.T_Integer) Then
             Return New TValue(a.Cast(Of Integer)() + b.Cast(Of Integer)())
@@ -15,6 +23,12 @@ Public NotInheritable Class Operators
         End If
     End Function
 
+    ''' <summary>
+    ''' Returns the sum of a - b    
+    ''' </summary>
+    ''' <param name="a"></param>
+    ''' <param name="b"></param>
+    ''' <returns></returns>
     Public Shared Function Subtraction(a As TValue, b As TValue) As TValue
         If (a.GetObjectType = Tokens.T_Integer And b.GetObjectType = Tokens.T_Integer) Then
             Return New TValue(a.Cast(Of Integer)() - b.Cast(Of Integer)())
@@ -29,6 +43,12 @@ Public NotInheritable Class Operators
         End If
     End Function
 
+    ''' <summary>
+    ''' ''' Returns the sum of a * b    
+    ''' </summary>
+    ''' <param name="a"></param>
+    ''' <param name="b"></param>
+    ''' <returns></returns>
     Public Shared Function Multiplication(a As TValue, b As TValue) As TValue
         If (a.GetObjectType = Tokens.T_Integer And b.GetObjectType = Tokens.T_Integer) Then
             Return New TValue(a.Cast(Of Integer)() * b.Cast(Of Integer)())
@@ -47,6 +67,12 @@ Public NotInheritable Class Operators
         End If
     End Function
 
+    ''' <summary>
+    ''' Returns the sum of a / b    
+    ''' </summary>
+    ''' <param name="a"></param>
+    ''' <param name="b"></param>
+    ''' <returns></returns>
     Public Shared Function Division(a As TValue, b As TValue) As TValue
         If (a.GetObjectType = Tokens.T_Integer And b.GetObjectType = Tokens.T_Integer) Then
             If (b.Cast(Of Integer) = 0) Then Throw New ScriptError("division by zero")
@@ -65,6 +91,12 @@ Public NotInheritable Class Operators
         End If
     End Function
 
+    ''' <summary>
+    ''' ''' Returns the sum of a % b    
+    ''' </summary>
+    ''' <param name="a"></param>
+    ''' <param name="b"></param>
+    ''' <returns></returns>
     Public Shared Function Modulo(a As TValue, b As TValue) As TValue
         If (a.GetObjectType = Tokens.T_Integer And b.GetObjectType = Tokens.T_Integer) Then
             Return New TValue(a.Cast(Of Integer)() Mod b.Cast(Of Integer)())
@@ -79,6 +111,12 @@ Public NotInheritable Class Operators
         End If
     End Function
 
+    ''' <summary>
+    ''' Signs a value defined op token type (negative or positive)
+    ''' </summary>
+    ''' <param name="a"></param>
+    ''' <param name="op"></param>
+    ''' <returns></returns>
     Public Shared Function Sign(a As TValue, op As Tokens) As TValue
         If (op = Tokens.T_Plus) Then
             Return Operators.SignPositive(a)
@@ -89,6 +127,11 @@ Public NotInheritable Class Operators
         End If
     End Function
 
+    ''' <summary>
+    ''' Signs a value positively
+    ''' </summary>
+    ''' <param name="a"></param>
+    ''' <returns></returns>
     Public Shared Function SignPositive(a As TValue) As TValue
         If (a.GetObjectType = Tokens.T_Integer) Then
             Return New TValue(a.Cast(Of Integer)() * 1)
@@ -99,6 +142,11 @@ Public NotInheritable Class Operators
         End If
     End Function
 
+    ''' <summary>
+    ''' Signs a value negatively
+    ''' </summary>
+    ''' <param name="a"></param>
+    ''' <returns></returns>
     Public Shared Function SignNegative(a As TValue) As TValue
         If (a.GetObjectType = Tokens.T_Integer) Then
             Return New TValue(a.Cast(Of Integer)() * -1)
@@ -109,6 +157,12 @@ Public NotInheritable Class Operators
         End If
     End Function
 
+    ''' <summary>
+    ''' Returns the logical AND result between A and B
+    ''' </summary>
+    ''' <param name="a"></param>
+    ''' <param name="b"></param>
+    ''' <returns></returns>
     Public Shared Function [And](a As TValue, b As TValue) As TValue
         If (a.GetObjectType = Tokens.T_Bool And b.GetObjectType = Tokens.T_Bool) Then
             Return New TValue(a.Cast(Of Boolean)() And b.Cast(Of Boolean)())
@@ -119,6 +173,12 @@ Public NotInheritable Class Operators
         End If
     End Function
 
+    ''' <summary>
+    ''' Returns the logical OR result between A and B
+    ''' </summary>
+    ''' <param name="a"></param>
+    ''' <param name="b"></param>
+    ''' <returns></returns>
     Public Shared Function [Or](a As TValue, b As TValue) As TValue
         If (a.GetObjectType = Tokens.T_Bool And b.GetObjectType = Tokens.T_Bool) Then
             Return New TValue(a.Cast(Of Boolean)() Or b.Cast(Of Boolean)())
@@ -129,6 +189,12 @@ Public NotInheritable Class Operators
         End If
     End Function
 
+    ''' <summary>
+    ''' Returns the logical XOR result between A and B
+    ''' </summary>
+    ''' <param name="a"></param>
+    ''' <param name="b"></param>
+    ''' <returns></returns>
     Public Shared Function [Xor](a As TValue, b As TValue) As TValue
         If (a.GetObjectType = Tokens.T_Bool And b.GetObjectType = Tokens.T_Bool) Then
             Return New TValue(a.Cast(Of Boolean)() And b.Cast(Of Boolean)())
@@ -139,6 +205,11 @@ Public NotInheritable Class Operators
         End If
     End Function
 
+    ''' <summary>
+    ''' Returns the logical NOT result of A
+    ''' </summary>
+    ''' <param name="a"></param>
+    ''' <returns></returns>
     Public Shared Function [Not](a As TValue) As TValue
         If (a.GetObjectType = Tokens.T_Integer) Then
             Return New TValue(Not a.Cast(Of Integer)())
@@ -149,6 +220,12 @@ Public NotInheritable Class Operators
         End If
     End Function
 
+    ''' <summary>
+    ''' Shifts value A > B
+    ''' </summary>
+    ''' <param name="a"></param>
+    ''' <param name="b"></param>
+    ''' <returns></returns>
     Public Shared Function ShiftRight(a As TValue, b As TValue) As TValue
         If (a.GetObjectType = Tokens.T_Integer And b.GetObjectType = Tokens.T_Integer) Then
             Return New TValue(a.Cast(Of Integer)() >> b.Cast(Of Integer)())
@@ -157,7 +234,15 @@ Public NotInheritable Class Operators
         End If
     End Function
 
+    ' XML documentation parse error
+    ''' <summary>
+    ''' Shifts value A < B
+    ''' </summary>
+    ''' <param name="a"></param>
+    ''' <param name="b"></param>
+    ''' <returns></returns>
     Public Shared Function ShiftLeft(a As TValue, b As TValue) As TValue
+#Enable Warning BC42304 ' XML documentation parse error
         If (a.GetObjectType = Tokens.T_Integer And b.GetObjectType = Tokens.T_Integer) Then
             Return New TValue(a.Cast(Of Integer)() << b.Cast(Of Integer)())
         Else
@@ -165,14 +250,32 @@ Public NotInheritable Class Operators
         End If
     End Function
 
+    ''' <summary>
+    ''' Returns a TValue (boolean) if a is equal b
+    ''' </summary>
+    ''' <param name="a"></param>
+    ''' <param name="b"></param>
+    ''' <returns></returns>
     Public Shared Function IsEqual(a As TValue, b As TValue) As TValue
         Return New TValue(a.Value.Equals(b.Value))
     End Function
 
+    ''' <summary>
+    ''' Returns a TValue (boolean) if a not eqauals b
+    ''' </summary>
+    ''' <param name="a"></param>
+    ''' <param name="b"></param>
+    ''' <returns></returns>
     Public Shared Function IsNotEqual(a As TValue, b As TValue) As TValue
         Return New TValue(Not a.Value.Equals(b.Value))
     End Function
 
+    ''' <summary>
+    ''' Returns a TValue (boolean) if a is greater then b
+    ''' </summary>
+    ''' <param name="a"></param>
+    ''' <param name="b"></param>
+    ''' <returns></returns>
     Public Shared Function IsGreater(a As TValue, b As TValue) As TValue
         If (a.GetObjectType = Tokens.T_Integer And b.GetObjectType = Tokens.T_Integer) Then
             Return New TValue(a.Cast(Of Integer)() > b.Cast(Of Integer)())
@@ -187,6 +290,12 @@ Public NotInheritable Class Operators
         End If
     End Function
 
+    ''' <summary>
+    ''' Returns a TValue (boolean) if a is lesser then b
+    ''' </summary>
+    ''' <param name="a"></param>
+    ''' <param name="b"></param>
+    ''' <returns></returns>
     Public Shared Function IsLesser(a As TValue, b As TValue) As TValue
         If (a.GetObjectType = Tokens.T_Integer And b.GetObjectType = Tokens.T_Integer) Then
             Return New TValue(a.Cast(Of Integer)() < b.Cast(Of Integer)())
@@ -201,6 +310,12 @@ Public NotInheritable Class Operators
         End If
     End Function
 
+    ''' <summary>
+    ''' Returns a TValue (boolean) if a is equal or greater then b
+    ''' </summary>
+    ''' <param name="a"></param>
+    ''' <param name="b"></param>
+    ''' <returns></returns>
     Public Shared Function IsEqualOrGreater(a As TValue, b As TValue) As TValue
         If (a.GetObjectType = Tokens.T_Integer And b.GetObjectType = Tokens.T_Integer) Then
             Return New TValue(a.Cast(Of Integer)() >= b.Cast(Of Integer)())
@@ -215,6 +330,12 @@ Public NotInheritable Class Operators
         End If
     End Function
 
+    ''' <summary>
+    ''' Returns a TValue (boolean) if a is equal or lesser then b
+    ''' </summary>
+    ''' <param name="a"></param>
+    ''' <param name="b"></param>
+    ''' <returns></returns>
     Public Shared Function IsEqualOrLesser(a As TValue, b As TValue) As TValue
         If (a.GetObjectType = Tokens.T_Integer And b.GetObjectType = Tokens.T_Integer) Then
             Return New TValue(a.Cast(Of Integer)() <= b.Cast(Of Integer)())
@@ -229,10 +350,22 @@ Public NotInheritable Class Operators
         End If
     End Function
 
+    ''' <summary>
+    ''' Returns if a value is like b value using the Like operator
+    ''' </summary>
+    ''' <param name="a"></param>
+    ''' <param name="b"></param>
+    ''' <returns></returns>
     Public Shared Function IsLike(a As TValue, b As TValue) As TValue
         Return New TValue(a.Value.ToString Like b.Value.ToString)
     End Function
 
+    ''' <summary>
+    ''' Repeats a value of TValue defined by (c)ount.
+    ''' </summary>
+    ''' <param name="v"></param>
+    ''' <param name="c"></param>
+    ''' <returns></returns>
     Public Shared Function Repeat(v As TValue, c As TValue) As TValue
         Dim count As Integer = c.Cast(Of Integer)()
         If (count >= 0 AndAlso count <= Byte.MaxValue) Then
@@ -241,6 +374,12 @@ Public NotInheritable Class Operators
         Throw New Exception(String.Format("Count value out of range, max = {0}", Byte.MaxValue))
     End Function
 
+    ''' <summary>
+    ''' Repeats a string defined by (c)ount.
+    ''' </summary>
+    ''' <param name="v"></param>
+    ''' <param name="c"></param>
+    ''' <returns></returns>
     Public Shared Function Repeat(v As String, c As Integer) As String
         Return New StringBuilder(v.Length * c).Insert(0, v, c).ToString
     End Function

@@ -5,6 +5,11 @@ Namespace Parsers
         Inherits Dictionary(Of Tokens, String)
         Implements IDisposable
         Sub New()
+            Me.Add(Tokens.T_Return, "^\breturn\b")
+            Me.Add(Tokens.T_Function, "^\bfunction\b")
+            Me.Add(Tokens.T_Hexadecimal, "^(0x)[a-fA-F0-9]{1,8}")
+            Me.Add(Tokens.T_Increment, "^(\+\+)")
+            Me.Add(Tokens.T_Decrement, "^(\-\-)")
             Me.Add(Tokens.T_Space, "^(\s)")
             Me.Add(Tokens.T_Newline, "^(\r\n)")
             Me.Add(Tokens.T_LineComment, "^(//(.*?)\r?\n)")

@@ -9,6 +9,8 @@ Public Enum Tokens As Byte
     T_Bool
     T_Identifier
     T_Stream
+    T_Hexadecimal
+    T_Function
 
     T_Plus
     T_Minus
@@ -17,6 +19,9 @@ Public Enum Tokens As Byte
     T_Mod
 
     T_Assign
+
+    T_Increment
+    T_Decrement
 
     T_Equal
     T_NotEqual
@@ -55,6 +60,7 @@ Public Enum Tokens As Byte
     T_BlockComment
     T_LineComment
 
+    T_NOP
     T_EndStatement
     T_EndOfFile = &HFF
 End Enum

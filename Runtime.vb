@@ -2,7 +2,6 @@
 Imports Bastion.Parsers
 Imports Bastion.Expressions
 Imports Bastion.Expressions.Types
-
 Imports System.Reflection
 
 Public Class Runtime
@@ -13,8 +12,16 @@ Public Class Runtime
     ''' Constructor of runtime.
     ''' </summary>
     ''' <param name="script"></param>
-    Sub New(script As String)
-        MyBase.New(script)
+    Sub New(script As String, Optional openLog As Boolean = True)
+        MyBase.New(script, openLog)
+        Me.CreateTimer("execution_timer", True)
+    End Sub
+
+    ''' <summary>
+    ''' Constructor of runtime.
+    ''' </summary>
+    Sub New(e As List(Of Expression), Optional openLog As Boolean = True)
+        MyBase.New(e, openLog)
         Me.CreateTimer("execution_timer", True)
     End Sub
 
@@ -24,8 +31,12 @@ Public Class Runtime
     ''' <returns></returns>
     Public Function Evaluate() As TValue
         Try
-            If (Me.HasContext) Then
-                Return Me.Resolve(New Ast(Me).Analyze(New Lexer(Me).Analyze(Me.Context)))
+            If (Me.HasScript) Then
+                Me.SetScope(Me)
+                Return Me.Resolve(New Ast(Me).Analyze(New Lexer(Me).Analyze(Me.Script)))
+            ElseIf (Me.HasAst) Then
+                Me.SetScope(Me)
+                Return Me.Resolve(Me.Ast)
             End If
         Catch ex As Exception
             Me.Log(String.Format("[error] Execution stopped ({0})", ex.Message))
@@ -93,6 +104,8 @@ Public Class Runtime
                 Return Me.Resolve(CType(e, Conditional))
             ElseIf (TypeOf e Is ForLoop) Then
                 Return Me.Resolve(CType(e, ForLoop))
+            ElseIf (TypeOf e Is [function]) Then
+                Return New TValue(e)
             ElseIf (TypeOf e Is Expressions.Library) Then
                 Return Me.Resolve(CType(e, Expressions.Library))
             End If
@@ -109,7 +122,8 @@ Public Class Runtime
     ''' <returns></returns>
     Private Function Resolve(e As ForLoop) As TValue
         Me.Log(String.Format("[Loop] -> {0}", e))
-        Dim init As TValue = Me.Resolve(e.Init), condition As TValue
+        Dim condition As TValue
+        Me.Resolve(e.Init)
         Do
             condition = Me.Resolve(e.Condition)
             If (condition.IsBoolean) Then
@@ -120,7 +134,7 @@ Public Class Runtime
                     Exit Do
                 End If
             Else
-                Throw New ScriptError(String.Format("for-loop expects a boolean for condition '{0}'", e))
+                Throw New ScriptError(String.Format("for-loop expects a boolean for the condition '{0}'", e))
             End If
         Loop While True
         Return TValue.Null
@@ -133,10 +147,10 @@ Public Class Runtime
     ''' <param name="domain"></param>
     ''' <returns></returns>
     Private Function Resolve(e As Expressions.Library, Optional domain As String = "Bastion.Library") As TValue
-        Me.Log(String.Format("[Library] Looking for {0} ", e))
+        Me.Log(String.Format("[Import] <- {0} ", e))
         Dim ref As String = Parsing.GetValue(e.Name)
         For Each t As Type In Assembly.GetExecutingAssembly.GetTypes
-            If (t.IsClass AndAlso t.Namespace = domain AndAlso t.Name.Equals(ref, StringComparison.CurrentCultureIgnoreCase)) Then
+            If (t.IsValid(ref, domain)) Then
                 Me.Scan(t)
                 Return New TValue(True)
             End If
@@ -206,12 +220,24 @@ Public Class Runtime
     Private Function Resolve(e As Unary) As TValue
         Me.Log(String.Format("[unary] -> {0}", e))
         If (e.Operand IsNot Nothing) Then
-            If (e.Op = Tokens.T_Negate) Then
+            If (e.Op = Tokens.T_Return) Then
+                Return New TValue(Me.Resolve(e.Operand))
+            ElseIf (e.Op = Tokens.T_Negate) Then
                 Return Operators.Not(Me.Resolve(e.Operand))
             ElseIf (e.Op = Tokens.T_Plus) Then
                 Return Operators.Sign(Me.Resolve(e.Operand), e.Op)
             ElseIf (e.Op = Tokens.T_Minus) Then
                 Return Operators.Sign(Me.Resolve(e.Operand), e.Op)
+            ElseIf (e.Op = Tokens.T_Increment) Then
+                Dim result As TValue = TValue.Null
+                result = Operators.Addition(Me.Resolve(e.Operand), New TValue(1))
+                Me.SetVariable(Parsing.GetValue(e.Operand), result)
+                Return result
+            ElseIf (e.Op = Tokens.T_Decrement) Then
+                Dim result As TValue = TValue.Null
+                result = Operators.Subtraction(Me.Resolve(e.Operand), New TValue(1))
+                Me.SetVariable(Parsing.GetValue(e.Operand), result)
+                Return result
             End If
             Throw New ScriptError(String.Format("undefined expression type '{0}'", e.GetType.Name))
         End If
@@ -261,9 +287,30 @@ Public Class Runtime
             Dim func As TValue = Me.Resolve(e.Name)
             If (func.IsDelegate) Then
                 Return Me.Resolve(CType(func.Value, [Delegate]), Me.ResolveParameters(e.Parameters))
+            ElseIf (func.IsScriptFunction) Then
+                Return Me.Resolve(CType(func.Value, [Function]), Me.ResolveParameters(e.Parameters))
             End If
         End If
-        Throw New ScriptError(String.Format("Undefined function '{0}()'", e.Name))
+        Throw New ScriptError(String.Format("undefined function '{0}()'", e.Name))
+    End Function
+
+    ''' <summary>
+    ''' Resolves an expression to a value.
+    ''' </summary>
+    ''' <param name="e"></param>
+    ''' <param name="params"></param>
+    ''' <returns></returns>
+    Private Function Resolve(e As [Function], params As List(Of TValue)) As TValue
+        Me.Log(String.Format("[function] -> {0}", e))
+        Using rt As New Runtime(e.Body, False) With {.Logger = Me.Logger}
+            If (e.Parameters.Count = params.Count) Then
+                For i As Integer = 0 To e.Parameters.Count - 1
+                    rt.SetVariable(Parsing.GetValue(e.Parameters(i)), params(i))
+                Next
+                Return rt.Resolve(rt.Ast)
+            End If
+        End Using
+        Throw New ScriptError(String.Format("parameter count mismatch for '{0}'", e.ToString))
     End Function
 
     ''' <summary>
@@ -276,7 +323,7 @@ Public Class Runtime
         Me.Log(String.Format("[delegate] -> {0}", e.Method))
         Dim parameters As New List(Of Object) From {Me}
         parameters.AddRange(params.Select(Function(x) x.Unwrap).ToList)
-        If (Casting.Validate(Me, e, parameters)) Then
+        If (Environment.Validate(Me, e, parameters)) Then
             Dim result As TValue = New TValue(e.Method.Invoke(Nothing, parameters.ToArray))
             If (Not result.IsNull) Then
                 Me.Log(String.Format("[yield] <- {0} ({1})", result.Value.ToString.Truncate(25, "..."), result.GetObjectType.Name))
@@ -284,6 +331,21 @@ Public Class Runtime
             Return result
         End If
         Return TValue.Null
+    End Function
+
+    Public Function Resolve(e As [Function], params As List(Of Object)) As TValue
+        Try
+            Me.Enter()
+            If (e.Parameters.Count = params.Count) Then
+                For i As Integer = 0 To e.Parameters.Count - 1
+                    Me.SetVariable(Parsing.GetValue(e.Parameters(i)), New TValue(params(i)))
+                Next
+                'Return Me.EvaluateContextNoScope(e.Body)
+            End If
+        Finally
+            Me.Leave()
+        End Try
+        Throw New Exception(String.Format("Parameter count mismatch for '{0}'", e.ToString))
     End Function
 
     ''' <summary>
@@ -295,6 +357,7 @@ Public Class Runtime
         Return e.Select(Function(exp) Me.Resolve(exp)).ToList
     End Function
 
+    ' Add readonly modifier
     ''' <summary>
     ''' Creates unique ID for runtime instance
     ''' </summary>

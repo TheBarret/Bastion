@@ -10,7 +10,7 @@
             Me.Prefix = Prefix
         End Sub
         Public Overrides Function ToString() As String
-            If (Prefix) Then
+            If (Me.Prefix) Then
                 Return String.Format("{0} {1}", Me.Op.Name, Me.Operand)
             End If
             Return String.Format("{0} {1}", Me.Operand, Me.Op.Name)
