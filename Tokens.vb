@@ -8,6 +8,7 @@ Public Enum Tokens As Byte
     T_Float
     T_Bool
     T_Identifier
+    T_Array
     T_Stream
     T_Hexadecimal
     T_Function

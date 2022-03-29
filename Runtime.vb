@@ -11,7 +11,6 @@ Public Class Runtime
     ''' <summary>
     ''' Constructor of runtime.
     ''' </summary>
-    ''' <param name="script"></param>
     Sub New(script As String, Optional openLog As Boolean = True)
         MyBase.New(script, openLog)
         Me.CreateTimer("execution_timer", True)
@@ -30,19 +29,19 @@ Public Class Runtime
     ''' </summary>
     ''' <returns></returns>
     Public Function Evaluate() As TValue
-        Try
-            If (Me.HasScript) Then
+        'Try
+        If (Me.HasScript) Then
                 Me.SetScope(Me)
                 Return Me.Resolve(New Ast(Me).Analyze(New Lexer(Me).Analyze(Me.Script)))
             ElseIf (Me.HasAst) Then
                 Me.SetScope(Me)
                 Return Me.Resolve(Me.Ast)
             End If
-        Catch ex As Exception
-            Me.Log(String.Format("[error] Execution stopped ({0})", ex.Message))
-            Throw
-        End Try
-        Return TValue.Null
+            'Catch ex As Exception
+            '   Me.Log(String.Format("[error] Execution stopped ({0})", ex.Message))
+            '  Throw
+            'End Try
+            Return TValue.Null
     End Function
 
 
@@ -104,8 +103,12 @@ Public Class Runtime
                 Return Me.Resolve(CType(e, Conditional))
             ElseIf (TypeOf e Is ForLoop) Then
                 Return Me.Resolve(CType(e, ForLoop))
-            ElseIf (TypeOf e Is [function]) Then
+            ElseIf (TypeOf e Is [Function]) Then
                 Return New TValue(e)
+            ElseIf (TypeOf e Is [Array]) Then
+                Return Me.Resolve(CType(e, [Array]))
+            ElseIf (TypeOf e Is ArrayAccess) Then
+                Return Me.Resolve(CType(e, ArrayAccess))
             ElseIf (TypeOf e Is Expressions.Library) Then
                 Return Me.Resolve(CType(e, Expressions.Library))
             End If
@@ -113,6 +116,40 @@ Public Class Runtime
         Finally
             Me.Leave()
         End Try
+    End Function
+
+    ''' <summary>
+    ''' Resolves an array object.
+    ''' </summary>
+    ''' <param name="e"></param>
+    ''' <returns></returns>
+    Private Function Resolve(e As [Array]) As TValue
+        Me.Log(String.Format("[Array] -> {0}", e))
+        Dim buffer As New List(Of TValue)
+        For Each v As Expression In e.Values
+            buffer.Add(Me.Resolve(v))
+        Next
+        Return New TValue(buffer.ToArray)
+    End Function
+
+    ''' <summary>
+    ''' Resolves an array access to a value.
+    ''' </summary>
+    ''' <param name="e"></param>
+    ''' <returns></returns>
+    Private Function Resolve(e As ArrayAccess) As TValue
+        Me.Log(String.Format("[Array] <- {0}", e))
+        Dim index As TValue = Me.Resolve(e.Index)
+        Dim array As TValue = Me.Resolve(e.Name)
+        If (array.IsArray AndAlso index.IsInteger) Then
+            Dim arr As TValue() = array.GetArray
+            Dim idx As Integer = index.Cast(Of Integer)
+            If (idx >= 0 And idx < arr.Length) Then
+                Return arr(idx)
+            End If
+            Throw New ScriptError(String.Format("index {0} out of range", index))
+        End If
+        Throw New ScriptError(String.Format("cannot access array '{0}'", e))
     End Function
 
     ''' <summary>
@@ -324,11 +361,18 @@ Public Class Runtime
         Dim parameters As New List(Of Object) From {Me}
         parameters.AddRange(params.Select(Function(x) x.Unwrap).ToList)
         If (Environment.Validate(Me, e, parameters)) Then
-            Dim result As TValue = New TValue(e.Method.Invoke(Nothing, parameters.ToArray))
-            If (Not result.IsNull) Then
-                Me.Log(String.Format("[yield] <- {0} ({1})", result.Value.ToString.Truncate(25, "..."), result.GetObjectType.Name))
+            Dim result As Object = e.Method.Invoke(Me, parameters.ToArray)
+            If (result IsNot Nothing) Then
+                If (result.GetType.IsArray) Then
+                    result = New TValue(CType(result, Object()).Select(Function(x) New TValue(x)).ToArray)
+                Else
+                    result = New TValue(result)
+                End If
+                If (Not result.IsNull) Then
+                    Me.Log(String.Format("[yield] <- {0}", CType(result, TValue).GetObjectType.Name))
+                End If
+                Return result
             End If
-            Return result
         End If
         Return TValue.Null
     End Function
@@ -345,7 +389,7 @@ Public Class Runtime
         Finally
             Me.Leave()
         End Try
-        Throw New Exception(String.Format("Parameter count mismatch for '{0}'", e.ToString))
+        Throw New ScriptError(String.Format("parameter count mismatch for '{0}'", e.ToString))
     End Function
 
     ''' <summary>
@@ -356,17 +400,6 @@ Public Class Runtime
     Private Function ResolveParameters(e As List(Of Expression)) As List(Of TValue)
         Return e.Select(Function(exp) Me.Resolve(exp)).ToList
     End Function
-
-    ' Add readonly modifier
-    ''' <summary>
-    ''' Creates unique ID for runtime instance
-    ''' </summary>
-    Private m_reference As String = Guid.NewGuid.ToString
-    Public ReadOnly Property Reference As String
-        Get
-            Return Me.m_reference
-        End Get
-    End Property
 
     ''' <summary>
     ''' Disposes runtime instance
@@ -385,11 +418,8 @@ Public Class Runtime
             Me.disposedValue = True
         End If
     End Sub
-
     Public Overloads Sub Dispose() Implements IDisposable.Dispose
         Me.Dispose(True)
         GC.SuppressFinalize(Me)
     End Sub
-
-
 End Class

@@ -37,12 +37,13 @@ Namespace Parsers
 
         Public Function ParseStatement(ExpectEnd As Boolean) As Expression
             Dim e As Expression = Me.ParseAssignment
-            If (Me.Current.Type = Tokens.T_If) Then
+
+            If (Me.Current.Type = Tokens.T_Use) Then
+                e = Parsing.GetLibrary(Me)
+            ElseIf (Me.Current.Type = Tokens.T_If) Then
                 e = Parsing.ParseCondition(Me)
             ElseIf (Me.Current.Type = Tokens.T_For) Then
                 e = Parsing.ParseForLoop(Me)
-            ElseIf (Me.Current.Type = Tokens.T_Use) Then
-                e = Parsing.GetLibrary(Me)
             Else
                 If (ExpectEnd) Then
                     If (Me.Current.Type = Tokens.T_EndStatement) Then
@@ -62,7 +63,7 @@ Namespace Parsers
             Dim e As Expression = Me.ParseLogicalOr
             While (Me.Current.Type = Tokens.T_Assign)
                 Me.Next()
-                e = New Binary(e, Tokens.T_Assign, Me.ParseStatement(False))
+                e = New Binary(e, Tokens.T_Assign, Me.ParseLogicalOr)
             End While
             Return e
         End Function
@@ -103,7 +104,7 @@ Namespace Parsers
         End Function
 
         Private Function ParsePostfixUnary() As Expression
-            Dim e As Expression = Me.ParseLogicalXor()
+            Dim e As Expression = Me.ArrayAccess()
             While (Me.Current.Type = Tokens.T_Increment) OrElse
                   (Me.Current.Type = Tokens.T_Decrement)
                 Dim op As Tokens = Me.Current.Type
@@ -113,11 +114,22 @@ Namespace Parsers
             Return e
         End Function
 
+        Private Function ArrayAccess() As Expression
+            Dim e As Expression = Me.ParseLogicalXor()
+            While (Me.Current.Type = Tokens.T_BracketOpen)
+                Me.Next()
+                Dim key As Expression = Me.ParseLogicalXor
+                Me.Match(Tokens.T_BracketClose)
+                e = New ArrayAccess(e, key)
+            End While
+            Return e
+        End Function
+
         Private Function ParseLogicalXor() As Expression
             Dim e As Expression = Me.ParseAdditionOrSubtraction()
             While (Me.Current.Type = Tokens.T_Xor)
                 Me.Next()
-                e = New Binary(e, Tokens.T_Xor, Me.ParseAdditionOrSubtraction())
+                e = New Binary(e, Tokens.T_Xor, Me.ParseAdditionOrSubtraction)
             End While
             Return e
         End Function
@@ -182,6 +194,8 @@ Namespace Parsers
                 e = Parsing.GetFunction(Me)
             ElseIf (Me.Current.Type = Tokens.T_Null) Then
                 e = Parsing.GetNull(Me)
+            ElseIf (Me.Current.Type = Tokens.T_BracketOpen) Then
+                e = Parsing.GetArray(Me)
             ElseIf (Me.Current.Type = Tokens.T_ParenthesisOpen) Then
                 e = Parsing.GetParenthesis(Me)
             ElseIf (Me.Current.Type = Tokens.T_Minus) Then
@@ -234,7 +248,7 @@ Namespace Parsers
 
         Public Function Match(Type As Tokens) As Token
             If (Not Me.Current.Type = Type) Then
-                Throw New ScriptError(String.Format("Unexpected '{0}' at line {1}", Me.Current.Type, Me.Current.Line))
+                Throw New ScriptError(String.Format("unexpected '{0}' at line {1}", Me.Current.Type, Me.Current.Line))
             End If
             If (Me.Index >= Me.Stream.Count - 1) Then
                 Me.Current = Token.Create(Tokens.T_EndOfFile)
@@ -255,7 +269,7 @@ Namespace Parsers
         End Sub
 
         Public Sub Dispose() Implements IDisposable.Dispose
-            Me.Dispose(disposing:=True)
+            Me.Dispose(True)
             GC.SuppressFinalize(Me)
         End Sub
     End Class

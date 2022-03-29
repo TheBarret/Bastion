@@ -25,7 +25,6 @@ Namespace Helpers
             Array.Copy(base, 0, bytes, count - base.Length, base.Length)
             Array.Copy(buffer, 0, bytes, 0, buffer.Length)
 
-            Dim mask As UInt64 = &H1F
             Dim lo As UInt64 = BitConverter.ToUInt32(bytes, 8) << 32 Or BitConverter.ToUInt32(bytes, 12)
             Dim hi As UInt64 = BitConverter.ToUInt32(bytes, 0) << 32 Or BitConverter.ToUInt32(bytes, 4)
 
@@ -39,8 +38,7 @@ Namespace Helpers
                 ElseIf i = 13 Then
                     offset = hi >> 1
                 End If
-                Dim digit As Byte = CByte(offset And mask)
-                chars(index) = Uid.Map(digit)
+                chars(index) = Uid.Map(CByte(offset And &H1F))
                 index -= 1
                 offset = offset >> 5
             Next

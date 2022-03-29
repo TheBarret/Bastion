@@ -11,7 +11,7 @@ Namespace Parsers
         Private Property Stream As List(Of Token)
 
         Sub New(parent As Session)
-            Me.Line = 1
+            Me.Line = 0
             Me.Index = 0
             Me.Stream = New List(Of Token)
             Me.Parent = parent

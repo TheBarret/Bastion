@@ -45,6 +45,8 @@ Public Module Extensions
             Case Tokens.T_Float : Return "Float"
             Case Tokens.T_Bool : Return "Bool"
             Case Tokens.T_Identifier : Return "Identifier"
+            Case Tokens.T_Function : Return "Function"
+            Case Tokens.T_Array : Return "Array"
             Case Tokens.T_Plus : Return "+"
             Case Tokens.T_Minus : Return "-"
             Case Tokens.T_Mult : Return "*"

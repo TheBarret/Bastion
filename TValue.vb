@@ -1,10 +1,16 @@
-﻿Imports System.IO
+﻿
+Imports System.IO
+Imports System.Diagnostics.CodeAnalysis
 Imports Bastion.Expressions.Types
 
 ''' <summary>
 ''' Represents a value that is used by the script engine and can hold any value.
 ''' </summary>
 Public Class TValue
+    Implements IComparable(Of TValue),
+               IEquatable(Of TValue),
+               IComparable,
+               ICloneable
     Public Property Value As Object
 
     Sub New()
@@ -28,7 +34,18 @@ Public Class TValue
         If (GetType(T) Is Me.Value.GetType) Then
             Return CType(Me.Value, T)
         End If
-        Throw New ScriptError(String.Format("Cannot cast value '{0}' to '{1}'", Me.Value.GetType.Name, GetType(T).Name))
+        Throw New ScriptError(String.Format("cannot cast value '{0}' to '{1}'", Me.Value.GetType.Name, GetType(T).Name))
+    End Function
+
+    ''' <summary>
+    ''' Casts value to array if possible.
+    ''' </summary>
+    ''' <returns></returns>
+    Public Function GetArray() As TValue()
+        If (Me.Value.GetType.IsArray) Then
+            Return CType(Me.Value, TValue())
+        End If
+        Throw New ScriptError(String.Format("cannot cast value '{0}' to array", Me.Value.GetType.Name))
     End Function
 
     ''' <summary>
@@ -36,6 +53,7 @@ Public Class TValue
     ''' </summary>
     ''' <returns></returns>
     Public Function GetObjectType() As Tokens
+        Dim t = Me.Value.GetType
         If (TypeOf Me.Value Is String) Then
             Return Tokens.T_String
         ElseIf (TypeOf Me.Value Is Char) Then
@@ -50,6 +68,8 @@ Public Class TValue
             Return Tokens.T_Float
         ElseIf (TypeOf Me.Value Is Boolean) Then
             Return Tokens.T_Bool
+        ElseIf (TypeOf Me.Value Is Object()) Then
+            Return Tokens.T_Array
         ElseIf (TypeOf Me.Value Is [Function]) Then
             Return Tokens.T_Function
         ElseIf (TypeOf Me.Value Is [Delegate]) Then
@@ -79,6 +99,13 @@ Public Class TValue
         Return Me.GetObjectType = Tokens.T_Bool
     End Function
 
+    ''' <summary>
+    ''' Returns true if the value is an array
+    ''' </summary>
+    ''' <returns></returns>
+    Public Function IsArray() As Boolean
+        Return Me.GetObjectType = Tokens.T_Array
+    End Function
 
     ''' <summary>
     ''' Returns true if the value is an integer
@@ -145,14 +172,25 @@ Public Class TValue
     ''' Unwraps a TValue to object
     ''' </summary>
     ''' <returns></returns>
-    Public Function Unwrap() As Object
-        Dim result As Object = Me.Value
+    Public Function UnWrap() As Object
+        Return TValue.UnWrap(Me.Value)
+    End Function
+
+    ''' <summary>
+    ''' Unwraps an Object
+    ''' </summary>
+    ''' <param name="value"></param>
+    ''' <returns></returns>
+    Public Shared Function UnWrap(value As Object) As Object
         Do
-            If (TypeOf result Is TValue) Then
-                result = CType(result, TValue).Value
+            If (TypeOf value Is TValue) Then
+                value = CType(value, TValue).Value
             End If
-        Loop While TypeOf result Is TValue
-        Return result
+            If (value.GetType.IsArray) Then
+                value = CType(value, Object()).Select(Function(o) TValue.UnWrap(o)).ToArray
+            End If
+        Loop While TypeOf value Is TValue
+        Return value
     End Function
 
     ''' <summary>
@@ -160,7 +198,7 @@ Public Class TValue
     ''' </summary>
     ''' <returns></returns>
     Public Overrides Function ToString() As String
-        Return Me.Value.ToString
+        Return String.Format("TValue[{0}]", Me.Value)
     End Function
 
     ''' <summary>
@@ -169,5 +207,35 @@ Public Class TValue
     ''' <returns></returns>
     Public Shared Function Null() As TValue
         Return New TValue
+    End Function
+
+    ''' <summary>
+    ''' IComparer implementation
+    ''' </summary>
+    Public Function CompareTo(obj As Object) As Integer Implements IComparable.CompareTo
+        Return Me.CompareTo(TryCast(obj, TValue))
+    End Function
+
+    ''' <summary>
+    ''' IComparer implementation
+    ''' </summary>
+    Public Function CompareTo(<AllowNull> other As TValue) As Integer Implements IComparable(Of TValue).CompareTo
+        If (other Is Nothing) Then Return 1
+        Return Me.Value.GetHashCode.CompareTo(other.Value.GetHashCode)
+    End Function
+
+    ''' <summary>
+    ''' IEquatable implementation
+    ''' </summary>
+    Public Shadows Function Equals(<AllowNull> other As TValue) As Boolean Implements IEquatable(Of TValue).Equals
+        If (other Is Nothing) Then Return False
+        Return Me.Value.GetHashCode = other.Value.GetHashCode
+    End Function
+
+    ''' <summary>
+    ''' ICloneable implementation
+    ''' </summary>
+    Public Function Clone() As Object Implements ICloneable.Clone
+        Return New TValue(Me.Value)
     End Function
 End Class

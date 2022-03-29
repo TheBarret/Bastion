@@ -2,6 +2,7 @@
 Imports Bastion.Expressions
 Imports Bastion.Expressions.Types
 Imports Bastion.Library
+Imports Newtonsoft.Json.Linq
 
 Namespace Helpers
     Public Class Parsing
@@ -129,6 +130,10 @@ Namespace Helpers
         Public Shared Function GetReturn(parent As Ast) As Expression
             parent.Next()
             Return New [Return](parent.ParseStatement(True))
+        End Function
+
+        Public Shared Function GetArray(parent As Ast) As Expression
+            Return New [Array](Parsing.GetTuples(parent, Tokens.T_BracketOpen, Tokens.T_BracketClose))
         End Function
 
         Public Shared Function GetParenthesis(parent As Ast) As Expression
