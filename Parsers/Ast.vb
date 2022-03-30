@@ -15,7 +15,7 @@ Namespace Parsers
             Me.Parent = parent
         End Sub
 
-        Public Function Analyze(stream As List(Of Token)) As List(Of Expression)
+        Public Function Analyze(stream As List(Of Token)) As Script
             Me.Parent.Log("Building abstract syntax tree ...")
             Me.Parent.CreateTimer("ast_timer", True)
             If (stream.Count > 0) Then
@@ -25,7 +25,7 @@ Namespace Parsers
                 Me.Parse()
             End If
             Me.Parent.Log(String.Format("Finished in {0}", Me.Parent.DestroyTimer("ast_timer").Elapsed.Duration))
-            Return Me
+            Return New Script(Me)
         End Function
 
         Public Sub Parse()
@@ -44,6 +44,8 @@ Namespace Parsers
                 e = Parsing.ParseCondition(Me)
             ElseIf (Me.Current.Type = Tokens.T_For) Then
                 e = Parsing.ParseForLoop(Me)
+            ElseIf (Me.Current.Type = Tokens.T_Function) Then
+                e = Parsing.GetFunction(Me)
             Else
                 If (ExpectEnd) Then
                     If (Me.Current.Type = Tokens.T_EndStatement) Then
@@ -54,16 +56,22 @@ Namespace Parsers
                         Throw New ScriptError(String.Format("expecting end of statement at line {1} ", Me.Current.Type, Me.Current.Line))
                     End If
                 ElseIf (e Is Nothing) Then
-                    Throw New ScriptError(String.Format("enexpected '{0}' at line {1} ", Me.Current.Type, Me.Current.Line))
+                    Throw New ScriptError(String.Format("unexpected '{0}' at line {1} ", Me.Current.Type, Me.Current.Line))
                 End If
             End If
             Return e
         End Function
         Public Function ParseAssignment() As Expression
             Dim e As Expression = Me.ParseLogicalOr
-            While (Me.Current.Type = Tokens.T_Assign)
+            While (Me.Current.Type = Tokens.T_Assign) OrElse
+                  (Me.Current.Type = Tokens.T_AssignAddition) OrElse
+                  (Me.Current.Type = Tokens.T_AssignSubtraction) OrElse
+                  (Me.Current.Type = Tokens.T_AssignMultiplication) OrElse
+                  (Me.Current.Type = Tokens.T_AssignDivision) OrElse
+                  (Me.Current.Type = Tokens.T_AssignModulus)
+                Dim op As Tokens = Me.Current.Type
                 Me.Next()
-                e = New Binary(e, Tokens.T_Assign, Me.ParseLogicalOr)
+                e = New Binary(e, op, Me.ParseStatement(False))
             End While
             Return e
         End Function
@@ -73,7 +81,7 @@ Namespace Parsers
             While (Me.Current.Type = Tokens.T_Or)
                 Dim op As Tokens = Me.Current.Type
                 Me.Next()
-                e = New Binary(e, op, Me.ParseLogicalAnd)
+                e = New Binary(e, op, Me.ParseStatement(False))
             End While
             Return e
         End Function
@@ -83,7 +91,7 @@ Namespace Parsers
             While (Me.Current.Type = Tokens.T_And)
                 Dim op As Tokens = Me.Current.Type
                 Me.Next()
-                e = New Binary(e, op, Me.ParseRelational)
+                e = New Binary(e, op, Me.ParseStatement(False))
             End While
             Return e
         End Function
@@ -98,7 +106,7 @@ Namespace Parsers
                   (Me.Current.Type = Tokens.T_EqualOrLesser)
                 Dim op As Tokens = Me.Current.Type
                 Me.Next()
-                e = New Binary(e, op, Me.ParsePostfixUnary)
+                e = New Binary(e, op, Me.ParseStatement(False))
             End While
             Return e
         End Function
@@ -116,12 +124,7 @@ Namespace Parsers
 
         Private Function ArrayAccess() As Expression
             Dim e As Expression = Me.ParseLogicalXor()
-            While (Me.Current.Type = Tokens.T_BracketOpen)
-                Me.Next()
-                Dim key As Expression = Me.ParseLogicalXor
-                Me.Match(Tokens.T_BracketClose)
-                e = New ArrayAccess(e, key)
-            End While
+            '//To do: add support for array access
             Return e
         End Function
 
@@ -129,7 +132,7 @@ Namespace Parsers
             Dim e As Expression = Me.ParseAdditionOrSubtraction()
             While (Me.Current.Type = Tokens.T_Xor)
                 Me.Next()
-                e = New Binary(e, Tokens.T_Xor, Me.ParseAdditionOrSubtraction)
+                e = New Binary(e, Tokens.T_Xor, Me.ParseStatement(False))
             End While
             Return e
         End Function
@@ -140,7 +143,7 @@ Namespace Parsers
                   (Me.Current.Type = Tokens.T_Minus)
                 Dim Op As Tokens = Me.Current.Type
                 Me.Next()
-                e = New Binary(e, Op, Me.ParseMultiplicationOrDivision)
+                e = New Binary(e, Op, Me.ParseStatement(False))
             End While
             Return e
         End Function
@@ -152,7 +155,7 @@ Namespace Parsers
                   (Me.Current.Type = Tokens.T_Mod)
                 Dim Op As Tokens = Me.Current.Type
                 Me.Next()
-                e = New Binary(e, Op, Me.ParsePrefixUnary)
+                e = New Binary(e, Op, Me.ParseStatement(False))
             End While
             Return e
         End Function
@@ -190,12 +193,8 @@ Namespace Parsers
                 e = Parsing.GetFloat(Me, False)
             ElseIf (Me.Current.Type = Tokens.T_Hexadecimal) Then
                 e = Parsing.GetHexadecimal(Me, False)
-            ElseIf (Me.Current.Type = Tokens.T_Function) Then
-                e = Parsing.GetFunction(Me)
             ElseIf (Me.Current.Type = Tokens.T_Null) Then
                 e = Parsing.GetNull(Me)
-            ElseIf (Me.Current.Type = Tokens.T_BracketOpen) Then
-                e = Parsing.GetArray(Me)
             ElseIf (Me.Current.Type = Tokens.T_ParenthesisOpen) Then
                 e = Parsing.GetParenthesis(Me)
             ElseIf (Me.Current.Type = Tokens.T_Minus) Then

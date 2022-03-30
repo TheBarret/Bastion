@@ -13,8 +13,8 @@ Public Class Environment
     Public Shared Property CurrentUser As WindowsIdentity = WindowsIdentity.GetCurrent
     Public Shared Property CurrentPrincipal As WindowsPrincipal = New WindowsPrincipal(WindowsIdentity.GetCurrent)
 
-    Public Shared Property Encoder As Encoding = Encoding.UTF8
-    Public Shared Property Logfile As String = String.Format(".\log-{0}.log", DateTime.Now.ToString("MM-dd-yy"))
+    Public Shared Property Encoder As Encoding = Encoding.ASCII
+    Public Shared Property Log As String = String.Format(".\log-{0}.log", DateTime.Now.ToString("MM-dd-yy"))
 
     Public Shared Function Culture() As CultureInfo
         Static ci As New CultureInfo("en-US")
@@ -24,7 +24,6 @@ Public Class Environment
     ''' <summary>
     ''' Returns true if the current user is an administrator.
     ''' </summary>
-    ''' <returns></returns>
     Public Shared Function IsAdministrator() As Boolean
         Return Environment.CurrentPrincipal.IsInRole(WindowsBuiltInRole.Administrator)
     End Function
@@ -32,8 +31,6 @@ Public Class Environment
     ''' <summary>
     ''' Returns true if a path is file
     ''' </summary>
-    ''' <param name="path"></param>
-    ''' <returns></returns>
     Public Shared Function IsFile(path As String) As Boolean
         Dim attr As FileAttributes = File.GetAttributes(path)
         Return Not (attr And FileAttributes.Directory) = FileAttributes.Directory
@@ -42,8 +39,6 @@ Public Class Environment
     ''' <summary>
     ''' Returns true if current user is able to read and write to given path
     ''' </summary>
-    ''' <param name="path"></param>
-    ''' <returns></returns>
     Public Shared Function HasAccess(path As String) As Boolean
         If (File.Exists(path) Or Directory.Exists(path)) Then
             If (Environment.IsFile(path)) Then
@@ -58,8 +53,6 @@ Public Class Environment
     ''' <summary>
     ''' Returns true if current user is able to read and write to given file
     ''' </summary>
-    ''' <param name="path"></param>
-    ''' <returns></returns>
     Public Shared Function HasAccess(path As FileInfo) As Boolean
         Dim accessControl As FileSecurity = path.GetAccessControl
         Dim accessRules As AuthorizationRuleCollection = accessControl.GetAccessRules(True, True, GetType(NTAccount))
@@ -76,8 +69,6 @@ Public Class Environment
     ''' <summary>
     ''' Returns true if the current user is able to read and write to given directory
     ''' </summary>
-    ''' <param name="path"></param>
-    ''' <returns></returns>
     Public Shared Function HasAccess(path As DirectoryInfo) As Boolean
         Dim accessControl As DirectorySecurity = path.GetAccessControl()
         Dim accessRules As AuthorizationRuleCollection = accessControl.GetAccessRules(True, True, GetType(NTAccount))
@@ -94,9 +85,6 @@ Public Class Environment
     ''' <summary>
     ''' Returns true if directory is writable by current user
     ''' </summary>
-    ''' <param name="path"></param>
-    ''' <param name="right"></param>
-    ''' <returns></returns>
     Public Shared Function HasAccess(path As DirectoryInfo, right As FileSystemRights) As Boolean
         Return Environment.HasFileOrDirectoryAccess(right, path.GetAccessControl().GetAccessRules(True, True, GetType(SecurityIdentifier)))
     End Function
@@ -104,9 +92,6 @@ Public Class Environment
     ''' <summary>
     ''' Returns true if file is writable by current user
     ''' </summary>
-    ''' <param name="file"></param>
-    ''' <param name="right"></param>
-    ''' <returns></returns>
     Public Shared Function HasAccess(file As FileInfo, right As FileSystemRights) As Boolean
         Return Environment.HasFileOrDirectoryAccess(right, file.GetAccessControl().GetAccessRules(True, True, GetType(SecurityIdentifier)))
     End Function
@@ -114,9 +99,6 @@ Public Class Environment
     ''' <summary>
     ''' Returns true if file or directory is writable by current user
     ''' </summary>
-    ''' <param name="right"></param>
-    ''' <param name="acl"></param>
-    ''' <returns></returns>
     Private Shared Function HasFileOrDirectoryAccess(right As FileSystemRights, acl As AuthorizationRuleCollection) As Boolean
         Dim allow As Boolean = False
         Dim inheritedAllow As Boolean = False
@@ -149,13 +131,10 @@ Public Class Environment
 
         Return inheritedAllow AndAlso Not inheritedDeny
     End Function
+
     ''' <summary>
     ''' Validates the parameters of the delegate and tries to auto convert the parameters to the corresponding types
     ''' </summary>
-    ''' <param name="rt"></param>
-    ''' <param name="e"></param>
-    ''' <param name="params"></param>
-    ''' <returns></returns>
     Public Shared Function Validate(rt As Runtime, e As [Delegate], params As List(Of Object)) As Boolean
         If (e.Method.GetParameters.Count <> params.Count) Then
             rt.Log(String.Format("Parameter count mismatch for '{0}()'", e.Method.Name))
@@ -176,12 +155,6 @@ Public Class Environment
     ''' <summary>
     ''' Attempts to convert the given object to the given type and makes a log entry of the result.
     ''' </summary>
-    ''' <typeparam name="T"></typeparam>
-    ''' <param name="rt"></param>
-    ''' <param name="obj"></param>
-    ''' <param name="type"></param>
-    ''' <param name="result"></param>
-    ''' <returns></returns>
     Public Shared Function ConvertType(Of T)(rt As Runtime, obj As Object, type As Type, ByRef result As T) As Boolean
         Try
             If (obj.GetType = type) Then

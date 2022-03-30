@@ -1,17 +1,11 @@
-﻿Public MustInherit Class Scope
+﻿Public Class Scope
     Inherits Dictionary(Of String, TValue)
-    Private Property Parent As Session
+    Implements IDisposable
+
     Public Property Level As Integer
 
     Sub New()
         Me.Level = 1
-    End Sub
-
-    ''' <summary>
-    ''' Hacky way of assigning session owner to the scope, you cant do this in the constructor.
-    ''' </summary>
-    Public Sub SetScope(parent As Session)
-        Me.Parent = parent
     End Sub
 
     ''' <summary>
@@ -28,7 +22,10 @@
         Me.Level -= 1
     End Sub
 
-    Public Sub SetVariable(Name As String, value As TValue)
+    ''' <summary>
+    ''' Sets the value of the variable in the current scope.
+    ''' </summary>
+    Public Sub [Set](Name As String, value As TValue)
         If (Me.ContainsKey(Name.ToLower)) Then
             Me(Name.ToLower) = value
         Else
@@ -36,7 +33,12 @@
         End If
     End Sub
 
-    Public Function GetVariable(Name As String) As TValue
+    ''' <summary>
+    ''' Gets the value of the variable in the current scope.
+    ''' </summary>
+    ''' <param name="Name"></param>
+
+    Public Function [Get](Name As String) As TValue
         For Each var In Me
             If (var.Key.Equals(Name.ToLower)) Then
                 Return var.Value
@@ -45,8 +47,32 @@
         Return TValue.Null
     End Function
 
-    Public Function IsSet(Name As String) As Boolean
+    ''' <summary>
+    ''' Returns true if the variable exists in the current scope.
+    ''' </summary>
+    ''' <param name="Name"></param>
+
+    Public Function Exists(Name As String) As Boolean
         Return Me.ContainsKey(Name.ToLower)
     End Function
 
+    ''' <summary>
+    ''' IDisposable implementation.
+    ''' </summary>
+    Private disposedValue As Boolean
+    Protected Overridable Sub Dispose(disposing As Boolean)
+        If Not Me.disposedValue Then
+            If disposing Then
+                For Each entry In Me
+                    entry.Value.Dispose()
+                Next
+                Me.Clear()
+            End If
+            Me.disposedValue = True
+        End If
+    End Sub
+    Public Sub Dispose() Implements IDisposable.Dispose
+        Me.Dispose(disposing:=True)
+        GC.SuppressFinalize(Me)
+    End Sub
 End Class

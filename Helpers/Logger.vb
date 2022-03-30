@@ -5,15 +5,17 @@ Namespace Helpers
     Public Class Logger
         Inherits TextWriter
         Implements IDisposable
+        Public Property Name As String
         Public Property Filename As String
         Public Property Encoder As Encoding
-        Public Property Endpoint As FileStream
 
-        Sub New()
+        Sub New(session As Session)
+            Me.Name = session.Name
             Me.Encoder = Environment.Encoder
-            Me.Filename = Environment.Logfile
-            Me.Validate()
-            Me.Endpoint = File.OpenWrite(Me.Filename)
+            Me.Filename = Environment.Log
+            If (File.Exists(Me.Filename)) Then
+                File.Delete(Me.Filename)
+            End If
         End Sub
 
         Sub New(encoding As Encoding)
@@ -24,39 +26,64 @@ Namespace Helpers
             Me.WriteDebug(value.ToString)
         End Sub
 
-        Public Overrides Sub WriteLine(value As Object)
-            Me.WriteDebug(value.ToString)
-        End Sub
-
         Public Overrides Sub Write(value As String)
             Me.WriteDebug(value)
+        End Sub
+
+        Public Overrides Sub Write(value As Char)
+            Me.WriteDebug(value)
+        End Sub
+
+        Public Overrides Sub Write(value As Char())
+            Me.WriteDebug(value)
+        End Sub
+
+        Public Overrides Sub Write(value As Integer)
+            Me.WriteDebug(value)
+        End Sub
+
+        Public Overrides Sub Write(value As Double)
+            Me.WriteDebug(value)
+        End Sub
+
+        Public Overrides Sub Write(value As Boolean)
+            Me.WriteDebug(value)
+        End Sub
+
+        Public Overrides Sub WriteLine(value As Object)
+            Me.WriteDebug(value.ToString)
         End Sub
 
         Public Overrides Sub WriteLine(value As String)
             Me.WriteDebug(value)
         End Sub
 
-        Private Sub Validate()
-            If (File.Exists(Me.Filename)) Then File.Delete(Me.Filename)
+        Public Overrides Sub WriteLine(value As Char)
+            Me.WriteDebug(value)
+        End Sub
+
+        Public Overrides Sub WriteLine(value As Char())
+            Me.WriteDebug(value)
+        End Sub
+
+        Public Overrides Sub WriteLine(value As Integer)
+            Me.WriteDebug(value)
+        End Sub
+
+        Public Overrides Sub WriteLine(value As Double)
+            Me.WriteDebug(value)
+        End Sub
+
+        Public Overrides Sub WriteLine(value As Boolean)
+            Me.WriteDebug(value)
         End Sub
 
         Private Sub WriteDebug(message As String)
-            If (Me.Endpoint.CanWrite) Then
-                message = String.Format("[{0}] {1}{2}", DateTime.Now.ToString("MM-dd-yy HH:mm:ss"), message, ControlChars.CrLf)
-                Dim buffer() As Byte = Me.Encoding.GetBytes(message)
-                Me.Endpoint.Write(buffer, 0, buffer.Length)
-                Me.Endpoint.Flush()
-            End If
-        End Sub
-
-        Private Property disposedValue As Boolean
-        Protected Overloads Sub Dispose(disposing As Boolean)
-            If Not disposedValue Then
-                If disposing Then
-                    Me.Endpoint.Close()
-                End If
-                Me.disposedValue = True
-            End If
+            Using sw As New StreamWriter(File.Open(Me.Filename, FileMode.Append, FileAccess.Write, FileShare.Read), Me.Encoder)
+                sw.Write(String.Format("[{0}]", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")))
+                sw.Write(message)
+                sw.Write(ControlChars.CrLf)
+            End Using
         End Sub
 
         Public Overrides ReadOnly Property Encoding As Encoding

@@ -3,9 +3,6 @@ Imports System.IO
 Imports System.Diagnostics.CodeAnalysis
 Imports Bastion.Expressions.Types
 
-''' <summary>
-''' Represents a value that is used by the script engine and can hold any value.
-''' </summary>
 Public Class TValue
     Implements IComparable(Of TValue),
                IEquatable(Of TValue),
@@ -28,8 +25,6 @@ Public Class TValue
     ''' <summary>
     ''' Casts the value to the specified type.
     ''' </summary>
-    ''' <typeparam name="T"></typeparam>
-    ''' <returns></returns>
     Public Function Cast(Of T)() As T
         If (GetType(T) Is Me.Value.GetType) Then
             Return CType(Me.Value, T)
@@ -38,9 +33,46 @@ Public Class TValue
     End Function
 
     ''' <summary>
+    ''' Convert the value to double (if possible).
+    ''' </summary>
+    Public Function ToDouble() As Double
+        If (Me.IsNumber) Then
+            Return Convert.ToDouble(Me.Value)
+        End If
+        Throw New ScriptError(String.Format("cannot convert value '{0}' to 'double'", Me.Value.GetType.Name))
+    End Function
+
+    ''' <summary>
+    ''' Convert the value to double (if possible).
+    ''' </summary>
+    Public Function ToInteger() As Double
+        If (Me.IsNumber) Then
+            Return Convert.ToInt32(Me.Value)
+        End If
+        Throw New ScriptError(String.Format("cannot convert value '{0}' to 'integer'", Me.Value.GetType.Name))
+    End Function
+
+    ''' <summary>
+    ''' Returns true if a value (if number) is positive.
+    ''' </summary>
+    Public ReadOnly Property IsPositive() As Boolean
+        Get
+            Return Me.IsNumber AndAlso Me.ToDouble() > 0
+        End Get
+    End Property
+
+    ''' <summary>
+    ''' Returns true if a value (if number) is negative.
+    ''' </summary>
+    Public ReadOnly Property IsNegative() As Boolean
+        Get
+            Return Me.IsNumber AndAlso Me.ToDouble() < 0
+        End Get
+    End Property
+
+    ''' <summary>
     ''' Casts value to array if possible.
     ''' </summary>
-    ''' <returns></returns>
     Public Function GetArray() As TValue()
         If (Me.Value.GetType.IsArray) Then
             Return CType(Me.Value, TValue())
@@ -51,7 +83,6 @@ Public Class TValue
     ''' <summary>
     ''' Returns the type of the value recognized by the engine.
     ''' </summary>
-    ''' <returns></returns>
     Public Function GetObjectType() As Tokens
         Dim t = Me.Value.GetType
         If (TypeOf Me.Value Is String) Then
@@ -68,8 +99,6 @@ Public Class TValue
             Return Tokens.T_Float
         ElseIf (TypeOf Me.Value Is Boolean) Then
             Return Tokens.T_Bool
-        ElseIf (TypeOf Me.Value Is Object()) Then
-            Return Tokens.T_Array
         ElseIf (TypeOf Me.Value Is [Function]) Then
             Return Tokens.T_Function
         ElseIf (TypeOf Me.Value Is [Delegate]) Then
@@ -86,7 +115,6 @@ Public Class TValue
     ''' <summary>
     ''' Returns true if the value is a string
     ''' </summary>
-    ''' <returns></returns>
     Public Function IsString() As Boolean
         Return Me.GetObjectType = Tokens.T_String
     End Function
@@ -94,23 +122,13 @@ Public Class TValue
     ''' <summary>
     ''' Returns true if the value is an boolean
     ''' </summary>
-    ''' <returns></returns>
     Public Function IsBoolean() As Boolean
         Return Me.GetObjectType = Tokens.T_Bool
     End Function
 
     ''' <summary>
-    ''' Returns true if the value is an array
-    ''' </summary>
-    ''' <returns></returns>
-    Public Function IsArray() As Boolean
-        Return Me.GetObjectType = Tokens.T_Array
-    End Function
-
-    ''' <summary>
     ''' Returns true if the value is an integer
     ''' </summary>
-    ''' <returns></returns>
     Public Function IsInteger() As Boolean
         Return Me.GetObjectType = Tokens.T_Integer
     End Function
@@ -118,24 +136,28 @@ Public Class TValue
     ''' <summary>
     ''' Returns true if the value is a float
     ''' </summary>
-    ''' <returns></returns>
     Public Function IsFloat() As Boolean
         Return Me.GetObjectType = Tokens.T_Float
     End Function
 
     ''' <summary>
+    ''' Returns true if the value is a number (int or float)
+    ''' </summary>
+    Public Function IsNumber() As Boolean
+        Dim t As Tokens = Me.GetObjectType
+        Return t = Tokens.T_Float Or t = Tokens.T_Integer
+    End Function
+
+    ''' <summary>
     ''' Returns true if the value is null
     ''' </summary>
-    ''' <returns></returns>
     Public Function IsNull() As Boolean
         Return Me.GetObjectType = Tokens.T_Null
     End Function
 
-
     ''' <summary>
     ''' Returns true if the value is a delegate
     ''' </summary>
-    ''' <returns></returns>
     Public Function IsDelegate() As Boolean
         Return Me.GetObjectType = Tokens.T_Delegate
     End Function
@@ -143,8 +165,7 @@ Public Class TValue
     ''' <summary>
     ''' Returns true if the value is a script function
     ''' </summary>
-    ''' <returns></returns>
-    Public Function IsScriptFunction() As Boolean
+    Public Function IsFunction() As Boolean
         Return Me.GetObjectType = Tokens.T_Function
     End Function
 
@@ -160,7 +181,6 @@ Public Class TValue
     ''' <summary>
     ''' Wraps a object to TValue
     ''' </summary>
-    ''' <returns></returns>
     Public Function Wrap() As TValue
         If (TypeOf Me.Value Is TValue) Then
             Return CType(Me.Value, TValue)
@@ -171,7 +191,6 @@ Public Class TValue
     ''' <summary>
     ''' Unwraps a TValue to object
     ''' </summary>
-    ''' <returns></returns>
     Public Function UnWrap() As Object
         Return TValue.UnWrap(Me.Value)
     End Function
@@ -179,8 +198,6 @@ Public Class TValue
     ''' <summary>
     ''' Unwraps an Object
     ''' </summary>
-    ''' <param name="value"></param>
-    ''' <returns></returns>
     Public Shared Function UnWrap(value As Object) As Object
         Do
             If (TypeOf value Is TValue) Then
@@ -196,15 +213,13 @@ Public Class TValue
     ''' <summary>
     ''' Overrides the ToString() base method
     ''' </summary>
-    ''' <returns></returns>
     Public Overrides Function ToString() As String
-        Return String.Format("TValue[{0}]", Me.Value)
+        Return String.Format("TValue['{0}']", Me.Value)
     End Function
 
     ''' <summary>
     ''' Returns an empty (null) TValue
     ''' </summary>
-    ''' <returns></returns>
     Public Shared Function Null() As TValue
         Return New TValue
     End Function

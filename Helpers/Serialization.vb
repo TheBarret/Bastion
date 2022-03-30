@@ -1,11 +1,13 @@
 ﻿Imports System.IO
+Imports System.Text
 Imports Newtonsoft.Json
 
 Public Class Serialization
-    Public Function Pack(fn As String, target As Object) As Boolean
+    Public Shared Function Pack(fn As String, target As Object) As Boolean
         Try
-            Using fs As New BinaryWriter(File.OpenWrite(fn), Environment.Encoder)
-                fs.Write(JsonConvert.SerializeObject(target, Formatting.Indented))
+            Using sw As New StreamWriter(fn, False, New UTF8Encoding(False))
+                Dim json = JsonConvert.SerializeObject(target, Formatting.Indented)
+                sw.Write(json)
             End Using
             Return True
         Catch ex As Exception

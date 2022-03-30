@@ -7,54 +7,49 @@ Imports System.Reflection
 Public Class Runtime
     Inherits Session
     Implements IDisposable
-
     ''' <summary>
     ''' Constructor of runtime.
     ''' </summary>
-    Sub New(script As String, Optional openLog As Boolean = True)
-        MyBase.New(script, openLog)
+    Sub New(script As String)
+        MyBase.New(script)
         Me.CreateTimer("execution_timer", True)
     End Sub
 
     ''' <summary>
     ''' Constructor of runtime.
     ''' </summary>
-    Sub New(e As List(Of Expression), Optional openLog As Boolean = True)
-        MyBase.New(e, openLog)
+    Sub New(e As List(Of Expression))
+        MyBase.New(e)
         Me.CreateTimer("execution_timer", True)
     End Sub
 
     ''' <summary>
     ''' Executes the script.            
     ''' </summary>
-    ''' <returns></returns>
     Public Function Evaluate() As TValue
         'Try
-        If (Me.HasScript) Then
-                Me.SetScope(Me)
-                Return Me.Resolve(New Ast(Me).Analyze(New Lexer(Me).Analyze(Me.Script)))
-            ElseIf (Me.HasAst) Then
-                Me.SetScope(Me)
-                Return Me.Resolve(Me.Ast)
+        If (Me.HasInput) Then
+                Me.Script = New Ast(Me).Analyze(New Lexer(Me).Analyze(Me.Input))
+                Return Me.Resolve(Me.Script)
+            ElseIf (Me.HasTree) Then
+                Return Me.Resolve(Me.Tree)
             End If
-            'Catch ex As Exception
-            '   Me.Log(String.Format("[error] Execution stopped ({0})", ex.Message))
-            '  Throw
-            'End Try
-            Return TValue.Null
+        'Catch ex As Exception
+        'Me.Log(String.Format("[error] Execution stopped ({0})", ex.Message))
+        'Throw
+        'End Try
+        Return TValue.Null
     End Function
-
 
     ''' <summary>
     ''' Scans type for exposed methods.
     ''' </summary>
-    ''' <param name="obj"></param>
     Public Sub Scan(obj As Type)
         Me.Log(String.Format("Scanning {0}...", obj.FullName))
         For Each m As MethodInfo In obj.GetMethods(BindingFlags.Public Or BindingFlags.Static)
             For Each attr As ScriptFunction In m.GetCustomAttributes.OfType(Of ScriptFunction)()
                 Me.Log(String.Format("<- {0}() ({1})", attr.Reference, m))
-                Me.SetVariable(attr.Reference, New TValue(obj.CreateDelegate(m.Name)))
+                Me.Scope.Set(attr.Reference, New TValue(obj.CreateDelegate(m.Name)))
             Next
         Next
     End Sub
@@ -62,25 +57,24 @@ Public Class Runtime
     ''' <summary>
     ''' Resolves an expression to a value.
     ''' </summary>
-    ''' <param name="e"></param>
-    ''' <returns></returns>
     Private Function Resolve(e As List(Of Expression)) As TValue
-        Dim result As TValue = TValue.Null
-        For Each expr In e
-            result = Me.Resolve(expr)
-        Next
-        Return result
+        Try
+            Dim result As TValue = TValue.Null
+            For Each expr In e
+                result = Me.Resolve(expr)
+            Next
+            Return result
+        Finally
+            Serialization.Pack(".\script.bas", Me.Script)
+        End Try
     End Function
-
 
     ''' <summary>
     ''' Resolves an expression to a value.
     ''' </summary>
-    ''' <param name="e"></param>
-    ''' <returns></returns>
     Private Function Resolve(e As Expression) As TValue
         Try
-            Me.Enter()
+            Me.Scope.Enter()
             If (TypeOf e Is Null) Then
                 Return TValue.Null
             ElseIf (TypeOf e Is [String]) Then
@@ -104,85 +98,41 @@ Public Class Runtime
             ElseIf (TypeOf e Is ForLoop) Then
                 Return Me.Resolve(CType(e, ForLoop))
             ElseIf (TypeOf e Is [Function]) Then
-                Return New TValue(e)
-            ElseIf (TypeOf e Is [Array]) Then
-                Return Me.Resolve(CType(e, [Array]))
-            ElseIf (TypeOf e Is ArrayAccess) Then
-                Return Me.Resolve(CType(e, ArrayAccess))
+                Return Me.Resolve(CType(e, [Function]))
             ElseIf (TypeOf e Is Expressions.Library) Then
                 Return Me.Resolve(CType(e, Expressions.Library))
             End If
             Throw New ScriptError(String.Format("undefined expression type '{0}'", e.GetType.Name))
         Finally
-            Me.Leave()
+            Me.Scope.Leave()
         End Try
     End Function
 
     ''' <summary>
-    ''' Resolves an array object.
+    ''' Resolves for-loop
     ''' </summary>
-    ''' <param name="e"></param>
-    ''' <returns></returns>
-    Private Function Resolve(e As [Array]) As TValue
-        Me.Log(String.Format("[Array] -> {0}", e))
-        Dim buffer As New List(Of TValue)
-        For Each v As Expression In e.Values
-            buffer.Add(Me.Resolve(v))
-        Next
-        Return New TValue(buffer.ToArray)
-    End Function
-
-    ''' <summary>
-    ''' Resolves an array access to a value.
-    ''' </summary>
-    ''' <param name="e"></param>
-    ''' <returns></returns>
-    Private Function Resolve(e As ArrayAccess) As TValue
-        Me.Log(String.Format("[Array] <- {0}", e))
-        Dim index As TValue = Me.Resolve(e.Index)
-        Dim array As TValue = Me.Resolve(e.Name)
-        If (array.IsArray AndAlso index.IsInteger) Then
-            Dim arr As TValue() = array.GetArray
-            Dim idx As Integer = index.Cast(Of Integer)
-            If (idx >= 0 And idx < arr.Length) Then
-                Return arr(idx)
-            End If
-            Throw New ScriptError(String.Format("index {0} out of range", index))
-        End If
-        Throw New ScriptError(String.Format("cannot access array '{0}'", e))
-    End Function
-
-    ''' <summary>
-    ''' Resolves an expression to a value.
-    ''' </summary>
-    ''' <param name="e"></param>
-    ''' <returns></returns>
     Private Function Resolve(e As ForLoop) As TValue
         Me.Log(String.Format("[Loop] -> {0}", e))
-        Dim condition As TValue
-        Me.Resolve(e.Init)
-        Do
-            condition = Me.Resolve(e.Condition)
-            If (condition.IsBoolean) Then
-                If (condition.Cast(Of Boolean)()) Then
+        Dim ref As String, init, limit, offset As TValue
+        init = Me.Resolve(e.Init)
+        limit = Me.Resolve(e.Limit)
+        offset = Me.Resolve(e.Step)
+        If (ForLoop.Valid(e)) Then
+            ref = Parsing.GetValue(CType(e.Init, Binary).Left)
+            If (init.IsNumber And limit.IsNumber And offset.IsNumber) Then
+                For i As Integer = init.ToDouble To limit.ToDouble Step offset.ToDouble
+                    Me.Scope.Set(ref, New TValue(i))
                     Me.Resolve(e.Body)
-                    Me.Resolve(e.Step)
-                Else
-                    Exit Do
-                End If
-            Else
-                Throw New ScriptError(String.Format("for-loop expects a boolean for the condition '{0}'", e))
+                Next
+                Return TValue.Null
             End If
-        Loop While True
-        Return TValue.Null
+        End If
+        Throw New ScriptError(String.Format("invalid for-loop '{0}'", e))
     End Function
 
     ''' <summary>
     ''' Resolves an expression to a value.
     ''' </summary>
-    ''' <param name="e"></param>
-    ''' <param name="domain"></param>
-    ''' <returns></returns>
     Private Function Resolve(e As Expressions.Library, Optional domain As String = "Bastion.Library") As TValue
         Me.Log(String.Format("[Import] <- {0} ", e))
         Dim ref As String = Parsing.GetValue(e.Name)
@@ -198,20 +148,57 @@ Public Class Runtime
     ''' <summary>
     ''' Resolves an expression to a value.
     ''' </summary>
-    ''' <param name="e"></param>
-    ''' <returns></returns>
     Private Function Resolve(e As Binary) As TValue
         Me.Log(String.Format("[binary] -> {0} ", e))
         If (e.Left IsNot Nothing AndAlso e.Right IsNot Nothing) Then
             If (e.Op = Tokens.T_Assign) Then
                 Dim operand As TValue = Me.Resolve(e.Right)
-                Me.SetVariable(Parsing.GetValue(e.Left), operand)
+                Me.Scope.Set(Parsing.GetValue(e.Left), operand)
                 Return operand
+            ElseIf (e.Op = Tokens.T_AssignAddition) Then
+                Dim operand As TValue = Me.Resolve(e.Right)
+                Dim value As TValue = Me.Scope.Get(Parsing.GetValue(e.Left))
+                If (value.IsNumber And operand.IsNumber) Then
+                    Dim result As TValue = Operators.Addition(value, operand)
+                    Me.Scope.Set(Parsing.GetValue(e.Left), result)
+                    Return result
+                End If
+            ElseIf (e.Op = Tokens.T_AssignSubtraction) Then
+                Dim operand As TValue = Me.Resolve(e.Right)
+                Dim value As TValue = Me.Scope.Get(Parsing.GetValue(e.Left))
+                If (value.IsNumber And operand.IsNumber) Then
+                    Dim result As TValue = Operators.Subtraction(value, operand)
+                    Me.Scope.Set(Parsing.GetValue(e.Left), result)
+                    Return result
+                End If
+            ElseIf (e.Op = Tokens.T_AssignMultiplication) Then
+                Dim operand As TValue = Me.Resolve(e.Right)
+                Dim value As TValue = Me.Scope.Get(Parsing.GetValue(e.Left))
+                If (value.IsNumber And operand.IsNumber) Then
+                    Dim result As TValue = Operators.Multiplication(value, operand)
+                    Me.Scope.Set(Parsing.GetValue(e.Left), result)
+                    Return result
+                End If
+            ElseIf (e.Op = Tokens.T_AssignDivision) Then
+                Dim operand As TValue = Me.Resolve(e.Right)
+                Dim value As TValue = Me.Scope.Get(Parsing.GetValue(e.Left))
+                If (value.IsNumber And operand.IsNumber) Then
+                    Dim result As TValue = Operators.Division(value, operand)
+                    Me.Scope.Set(Parsing.GetValue(e.Left), result)
+                    Return result
+                End If
+            ElseIf (e.Op = Tokens.T_AssignModulus) Then
+                Dim operand As TValue = Me.Resolve(e.Right)
+                Dim value As TValue = Me.Scope.Get(Parsing.GetValue(e.Left))
+                If (value.IsNumber And operand.IsNumber) Then
+                    Dim result As TValue = Operators.Modulo(value, operand)
+                    Me.Scope.Set(Parsing.GetValue(e.Left), result)
+                    Return result
+                End If
             Else
                 Dim result As TValue = TValue.Null
                 Dim left As TValue = Me.Resolve(e.Left)
                 Dim right As TValue = Me.Resolve(e.Right)
-
                 If (e.Op = Tokens.T_Plus) Then
                     result = Operators.Addition(left, right)
                 ElseIf (e.Op = Tokens.T_Minus) Then
@@ -252,8 +239,6 @@ Public Class Runtime
     ''' <summary>
     ''' Resolves an expression to a value.
     ''' </summary>
-    ''' <param name="e"></param>
-    ''' <returns></returns>
     Private Function Resolve(e As Unary) As TValue
         Me.Log(String.Format("[unary] -> {0}", e))
         If (e.Operand IsNot Nothing) Then
@@ -268,24 +253,21 @@ Public Class Runtime
             ElseIf (e.Op = Tokens.T_Increment) Then
                 Dim result As TValue = TValue.Null
                 result = Operators.Addition(Me.Resolve(e.Operand), New TValue(1))
-                Me.SetVariable(Parsing.GetValue(e.Operand), result)
+                Me.Scope.Set(Parsing.GetValue(e.Operand), result)
                 Return result
             ElseIf (e.Op = Tokens.T_Decrement) Then
                 Dim result As TValue = TValue.Null
                 result = Operators.Subtraction(Me.Resolve(e.Operand), New TValue(1))
-                Me.SetVariable(Parsing.GetValue(e.Operand), result)
+                Me.Scope.Set(Parsing.GetValue(e.Operand), result)
                 Return result
             End If
-            Throw New ScriptError(String.Format("undefined expression type '{0}'", e.GetType.Name))
         End If
-        Throw New ScriptError("invalid expression")
+        Throw New ScriptError(String.Format("invalid expression '{0}'", e.GetType.Name))
     End Function
 
     ''' <summary>
     ''' Resolves an expression to a value.
     ''' </summary>
-    ''' <param name="e"></param>
-    ''' <returns></returns>
     Private Function Resolve(e As Conditional) As TValue
         Me.Log(String.Format("[conditional] -> {0}", e))
         Dim condition As TValue = Me.Resolve(e.Condition)
@@ -297,35 +279,31 @@ Public Class Runtime
             End If
             Return condition
         Else
-            Throw New ScriptError(String.Format("expecting boolean from '{0}'", e.ToString))
+            Throw New ScriptError(String.Format("expecting boolean '{0}'", e.ToString))
         End If
     End Function
 
     ''' <summary>
     ''' Resolves an expression to a value.
     ''' </summary>
-    ''' <param name="e"></param>
-    ''' <returns></returns>
     Private Function Resolve(e As Identifier) As TValue
         Me.Log(String.Format("[variable] -> {0}", e))
         Dim name As String = e.Value
-        If (Me.IsSet(name)) Then Return Me.GetVariable(name)
+        If (Me.Scope.Exists(name)) Then Return Me.Scope.Get(name)
         Throw New ScriptError(String.Format("undefined variable '{0}'", name))
     End Function
 
     ''' <summary>
     ''' Resolves an expression to a value.
     ''' </summary>
-    ''' <param name="e"></param>
-    ''' <returns></returns>
     Private Function Resolve(e As [Call]) As TValue
         Me.Log(String.Format("[call] -> {0}", e))
-        If (Me.IsSet(Parsing.GetValue(e.Name))) Then
+        If (Me.Scope.Exists(Parsing.GetValue(e.Name))) Then
             Dim func As TValue = Me.Resolve(e.Name)
             If (func.IsDelegate) Then
-                Return Me.Resolve(CType(func.Value, [Delegate]), Me.ResolveParameters(e.Parameters))
-            ElseIf (func.IsScriptFunction) Then
-                Return Me.Resolve(CType(func.Value, [Function]), Me.ResolveParameters(e.Parameters))
+                Return Me.Resolve(CType(func.Value, [Delegate]), Me.ResolveAll(e.Parameters))
+            ElseIf (func.IsFunction) Then
+                Return Me.Resolve(CType(func.Value, [Function]), Me.ResolveAll(e.Parameters))
             End If
         End If
         Throw New ScriptError(String.Format("undefined function '{0}()'", e.Name))
@@ -334,32 +312,34 @@ Public Class Runtime
     ''' <summary>
     ''' Resolves an expression to a value.
     ''' </summary>
-    ''' <param name="e"></param>
-    ''' <param name="params"></param>
-    ''' <returns></returns>
     Private Function Resolve(e As [Function], params As List(Of TValue)) As TValue
         Me.Log(String.Format("[function] -> {0}", e))
-        Using rt As New Runtime(e.Body, False) With {.Logger = Me.Logger}
+        Using rt As New Runtime(e.Body) With {.Logger = Me.Logger}
             If (e.Parameters.Count = params.Count) Then
                 For i As Integer = 0 To e.Parameters.Count - 1
-                    rt.SetVariable(Parsing.GetValue(e.Parameters(i)), params(i))
+                    rt.Scope.Set(Parsing.GetValue(e.Parameters(i)), params(i))
                 Next
-                Return rt.Resolve(rt.Ast)
+                Return rt.Resolve(rt.Tree)
             End If
         End Using
-        Throw New ScriptError(String.Format("parameter count mismatch for '{0}'", e.ToString))
+        Throw New ScriptError(String.Format("parameter count mismatch '{0}'", e.ToString))
+    End Function
+
+    ''' <summary>
+    ''' Assigns function into scope.
+    ''' </summary>
+    Private Function Resolve(e As [Function]) As TValue
+        Me.Scope.Set(Parsing.GetValue(e.Name), New TValue(e))
+        Return New TValue(e)
     End Function
 
     ''' <summary>
     ''' Resolves an expression to a value.
     ''' </summary>
-    ''' <param name="e"></param>
-    ''' <param name="params"></param>
-    ''' <returns></returns>
     Private Function Resolve(e As [Delegate], params As List(Of TValue)) As TValue
         Me.Log(String.Format("[delegate] -> {0}", e.Method))
         Dim parameters As New List(Of Object) From {Me}
-        parameters.AddRange(params.Select(Function(x) x.Unwrap).ToList)
+        parameters.AddRange(params.Select(Function(x) x.UnWrap).ToList)
         If (Environment.Validate(Me, e, parameters)) Then
             Dim result As Object = e.Method.Invoke(Me, parameters.ToArray)
             If (result IsNot Nothing) Then
@@ -377,27 +357,10 @@ Public Class Runtime
         Return TValue.Null
     End Function
 
-    Public Function Resolve(e As [Function], params As List(Of Object)) As TValue
-        Try
-            Me.Enter()
-            If (e.Parameters.Count = params.Count) Then
-                For i As Integer = 0 To e.Parameters.Count - 1
-                    Me.SetVariable(Parsing.GetValue(e.Parameters(i)), New TValue(params(i)))
-                Next
-                'Return Me.EvaluateContextNoScope(e.Body)
-            End If
-        Finally
-            Me.Leave()
-        End Try
-        Throw New ScriptError(String.Format("parameter count mismatch for '{0}'", e.ToString))
-    End Function
-
     ''' <summary>
-    ''' Resolves a list of expressions to a list of values.
+    ''' Resolves a list of expressions.
     ''' </summary>
-    ''' <param name="e"></param>
-    ''' <returns></returns>
-    Private Function ResolveParameters(e As List(Of Expression)) As List(Of TValue)
+    Private Function ResolveAll(e As List(Of Expression)) As List(Of TValue)
         Return e.Select(Function(exp) Me.Resolve(exp)).ToList
     End Function
 
@@ -406,14 +369,10 @@ Public Class Runtime
     ''' </summary>
     Private disposedValue As Boolean
     Protected Overloads Sub Dispose(disposing As Boolean)
-        Me.Log(String.Format("Disposing [execution: {0}]", Me.DestroyTimer("execution_timer").Elapsed.Duration))
+        Me.Log(String.Format("Disposing runtime [{0}]", Me.DestroyTimer("execution_timer").Elapsed.Duration))
         If Not disposedValue Then
             If disposing Then
-                For Each entry In Me
-                    entry.Value.Dispose()
-                Next
-                Me.Clear()
-                Me.Logger.Close()
+                MyBase.Dispose()
             End If
             Me.disposedValue = True
         End If

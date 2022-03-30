@@ -50,11 +50,13 @@ Namespace Helpers
         Public Shared Function ParseForLoop(parent As Ast) As Expression
             Dim params, body As New List(Of Expression)
             parent.Next()
-            parent.Match(Tokens.T_ParenthesisOpen)
-            params.Add(parent.ParseStatement(True))
-            params.Add(parent.ParseStatement(True))
-            params.Add(parent.ParseStatement(True))
-            parent.Match(Tokens.T_ParenthesisClose)
+            params.Add(parent.ParseStatement(False))
+            parent.Match(Tokens.T_To)
+            params.Add(parent.ParseStatement(False))
+            If (parent.Current.Type = Tokens.T_Step) Then
+                parent.Next()
+                params.Add(parent.ParseStatement(False))
+            End If
             If (parent.Current.Type = Tokens.T_BraceOpen) Then
                 body.AddRange(Parsing.GetBraceBlock(parent, True))
             End If
@@ -124,16 +126,12 @@ Namespace Helpers
 
         Public Shared Function GetFunction(parent As Ast) As Expression
             parent.Next()
-            Return New [Function](New Identifier(String.Format("func_{0}", Uid.Generate(8))), Parsing.GetTuples(parent, Tokens.T_ParenthesisOpen, Tokens.T_ParenthesisClose), Parsing.GetBraceBlock(parent))
+            Return New [Function](Parsing.GetIdentifier(parent), Parsing.GetTuples(parent, Tokens.T_ParenthesisOpen, Tokens.T_ParenthesisClose), Parsing.GetBraceBlock(parent))
         End Function
 
         Public Shared Function GetReturn(parent As Ast) As Expression
             parent.Next()
             Return New [Return](parent.ParseStatement(True))
-        End Function
-
-        Public Shared Function GetArray(parent As Ast) As Expression
-            Return New [Array](Parsing.GetTuples(parent, Tokens.T_BracketOpen, Tokens.T_BracketClose))
         End Function
 
         Public Shared Function GetParenthesis(parent As Ast) As Expression

@@ -3,26 +3,31 @@ Imports Bastion.Helpers
 Imports System.Reflection
 
 Public MustInherit Class Session
-    Inherits Scope
+    Implements IDisposable
     Public Property Name As String
     Public Property Debug As Boolean
     Public Property Logger As Logger
+    Public Property Scope As Scope
+    Public Property Script As Script
     Public Property Timers As Dictionary(Of String, Stopwatch)
 
-    Sub New(context As String, Optional Openlog As Boolean = True)
+    Sub New(context As String)
         Me.Name = Uid.Generate(8)
         Me.Debug = True
-        Me.m_script = context
+        Me.Scope = New Scope
+        Me.m_input = context
         Me.Timers = New Dictionary(Of String, Stopwatch)
-        If (Openlog) Then Me.Logger = New Logger
+        Me.Logger = New Logger(Me)
     End Sub
 
-    Sub New(ast As List(Of Expression), Optional Openlog As Boolean = True)
+    Sub New(context As List(Of Expression))
         Me.Name = Uid.Generate(8)
         Me.Debug = True
-        Me.m_ast = ast
+        Me.Scope = New Scope
+        Me.m_tree = context
+        Me.Script = New Script(context)
         Me.Timers = New Dictionary(Of String, Stopwatch)
-        If (Openlog) Then Me.Logger = New Logger
+        Me.Logger = New Logger(Me)
     End Sub
 
     ''' <summary>
@@ -32,7 +37,7 @@ Public MustInherit Class Session
     Public Sub Log(message As String)
         If (Me.Debug) Then
             Dim mb As MethodBase = Me.GetStackFrame(2)
-            Me.Logger.WriteLine(String.Format("[{0}] [{1}] [{2}.{3}] {4}", Operators.Repeat("*", Me.Level), Me.Name, mb.DeclaringType.Name, mb.Name, message))
+            Me.Logger.WriteLine(String.Format("[{0}] [{1}] [{2}.{3}] {4}", Operators.Repeat("*", Me.Scope.Level), Me.Name, mb.DeclaringType.Name, mb.Name, message))
         End If
     End Sub
 
@@ -40,7 +45,7 @@ Public MustInherit Class Session
     ''' Gets the stackframe of defined level
     ''' </summary>
     ''' <param name="level"></param>
-    ''' <returns></returns>
+
     Public Function GetStackFrame(level As Integer) As MethodBase
         Return New StackTrace().GetFrame(level).GetMethod()
     End Function
@@ -50,7 +55,7 @@ Public MustInherit Class Session
     ''' </summary>
     ''' <param name="name"></param>
     ''' <param name="startEnabled"></param>
-    ''' <returns></returns>
+
     Public Function CreateTimer(name As String, Optional startEnabled As Boolean = False) As Stopwatch
         If (Not Me.Timers.ContainsKey(name)) Then
             Dim sw As New Stopwatch
@@ -79,7 +84,7 @@ Public MustInherit Class Session
     ''' Gets the defined timer
     ''' </summary>
     ''' <param name="name"></param>
-    ''' <returns></returns>
+
     Public Function GetTimer(name As String) As Stopwatch
         Return Me.Timers(name)
     End Function
@@ -88,7 +93,7 @@ Public MustInherit Class Session
     ''' Stops the defined timer
     ''' </summary>
     ''' <param name="name"></param>
-    ''' <returns></returns>
+
     Public Function StopTimer(name As String) As Stopwatch
         If (Me.Timers.ContainsKey(name)) Then
             Me.Timers(name).Stop()
@@ -101,7 +106,7 @@ Public MustInherit Class Session
     ''' Destroys the defined timer
     ''' </summary>
     ''' <param name="name"></param>
-    ''' <returns></returns>
+
     Public Function DestroyTimer(name As String) As Stopwatch
         If (Me.Timers.ContainsKey(name)) Then
             Try
@@ -115,45 +120,73 @@ Public MustInherit Class Session
     End Function
 
     ''' <summary>
+    ''' Destroys all timers
+    ''' </summary>
+    Public Sub TerminateAllTimers()
+        For Each t In Me.Timers
+            t.Value.Stop()
+        Next
+    End Sub
+
+    ''' <summary>
     ''' Gets the context of the session in AST format.
     ''' </summary>
-    ''' <returns></returns>
-    Private m_ast As List(Of Expression)
-    Public ReadOnly Property Ast As List(Of Expression)
+
+    Private m_tree As List(Of Expression)
+    Public ReadOnly Property Tree As List(Of Expression)
         Get
-            Return Me.m_ast
+            Return Me.m_tree
         End Get
     End Property
 
     ''' <summary>
     ''' Returns true if context contains anything
     ''' </summary>
-    ''' <returns></returns>
-    Public ReadOnly Property HasAst As Boolean
+
+    Public ReadOnly Property HasTree As Boolean
         Get
-            Return Me.Ast.Count > 0
+            Return Me.Tree.Count > 0
         End Get
     End Property
 
     ''' <summary>
     ''' Gets the context of the session.
     ''' </summary>
-    ''' <returns></returns>
-    Private m_script As String
-    Public ReadOnly Property Script As String
+
+    Private m_input As String
+    Public ReadOnly Property Input As String
         Get
-            Return Me.m_script
+            Return Me.m_input
         End Get
     End Property
 
     ''' <summary>
     ''' Returns true if context contains anything
     ''' </summary>
-    ''' <returns></returns>
-    Public ReadOnly Property HasScript As Boolean
+
+    Public ReadOnly Property HasInput As Boolean
         Get
-            Return Me.Script.Length > 0
+            Return Me.m_input.Length > 0
         End Get
     End Property
 
+    ''' <summary>
+    ''' IDisposable implementation.
+    ''' </summary>
+    Private disposedValue As Boolean
+    Protected Overridable Sub Dispose(disposing As Boolean)
+        If Not disposedValue Then
+            If disposing Then
+                Me.Logger.Dispose()
+                Me.Scope.Dispose()
+                Me.TerminateAllTimers()
+                Me.Timers.Clear()
+            End If
+            Me.disposedValue = True
+        End If
+    End Sub
+    Public Sub Dispose() Implements IDisposable.Dispose
+        Me.Dispose(True)
+        GC.SuppressFinalize(Me)
+    End Sub
 End Class

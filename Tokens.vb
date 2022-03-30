@@ -8,10 +8,10 @@ Public Enum Tokens As Byte
     T_Float
     T_Bool
     T_Identifier
-    T_Array
-    T_Stream
     T_Hexadecimal
+    T_Stream
     T_Function
+    T_Delegate
 
     T_Plus
     T_Minus
@@ -20,10 +20,13 @@ Public Enum Tokens As Byte
     T_Mod
 
     T_Assign
-
+    T_AssignAddition
+    T_AssignSubtraction
+    T_AssignMultiplication
+    T_AssignDivision
+    T_AssignModulus
     T_Increment
     T_Decrement
-
     T_Equal
     T_NotEqual
     T_Greater
@@ -36,6 +39,8 @@ Public Enum Tokens As Byte
     T_Use
     T_Return
     T_For
+    T_To
+    T_Step
 
     T_Or
     T_And
@@ -54,7 +59,7 @@ Public Enum Tokens As Byte
     T_BracketClose
 
     T_Undefined
-    T_Delegate
+
 
     T_Space
     T_Newline

@@ -5,9 +5,16 @@ Namespace Parsers
         Inherits Dictionary(Of Tokens, String)
         Implements IDisposable
         Sub New()
+
             Me.Add(Tokens.T_Return, "^\breturn\b")
+
             Me.Add(Tokens.T_Function, "^\bfunction\b")
             Me.Add(Tokens.T_Hexadecimal, "^(0x)[a-fA-F0-9]{1,8}")
+            Me.Add(Tokens.T_AssignAddition, "^(\+\=)")
+            Me.Add(Tokens.T_AssignSubtraction, "^(\-\=)")
+            Me.Add(Tokens.T_AssignMultiplication, "^(\*\=)")
+            Me.Add(Tokens.T_AssignDivision, "^(\/\=)")
+            Me.Add(Tokens.T_AssignModulus, "^(\%\=)")
             Me.Add(Tokens.T_Increment, "^(\+\+)")
             Me.Add(Tokens.T_Decrement, "^(\-\-)")
             Me.Add(Tokens.T_Space, "^(\s)")
@@ -37,6 +44,8 @@ Namespace Parsers
             Me.Add(Tokens.T_Else, "^\belse\b")
             Me.Add(Tokens.T_Use, "^\buse\b")
             Me.Add(Tokens.T_For, "^\bfor\b")
+            Me.Add(Tokens.T_To, "^\bto\b")
+            Me.Add(Tokens.T_Step, "^\bstep\b")
             Me.Add(Tokens.T_Null, "^\bnull\b")
             Me.Add(Tokens.T_BracketOpen, "^(\[)")
             Me.Add(Tokens.T_BracketClose, "^(\])")

@@ -3,10 +3,15 @@
 Namespace Helpers
     Public Class Uid
         Public Shared Property Provider As RandomNumberGenerator = RandomNumberGenerator.Create()
-        Public Shared Property Map As Char() = {"2", "3", "4", "5", "6", "7", "8", "9",
-                                            "A", "B", "C", "D", "E", "F", "G", "H",
-                                            "J", "K", "L", "M", "N", "P", "Q", "R",
-                                            "S", "T", "U", "V", "W", "X", "Y", "Z"}
+        Public Shared Property Map As Char() = {"A", "B", "C", "D", "E", "F", "G",
+                                                "H", "J", "K", "L", "M", "N", "P",
+                                                "Q", "R", "S", "T", "U", "V", "W",
+                                                "X", "Y", "Z", "a", "b", "c", "d",
+                                                "e", "f", "g", "h", "i", "j", "k",
+                                                "l", "m", "n", "o", "p", "q", "r",
+                                                "s", "t", "u", "v", "w", "x", "y",
+                                                "z", "1", "2", "3", "4", "5", "6",
+                                                "7", "8", "9", "0"}
         Public Shared Sub GetNext(bytes() As Byte)
             Uid.Provider.GetBytes(bytes)
         End Sub

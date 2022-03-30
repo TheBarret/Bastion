@@ -12,5 +12,6 @@
         Public Overrides Function ToString() As String
             Return String.Format("{0} {1} {2}", Me.Left.ToString, Me.Op.Name, Me.Right.ToString)
         End Function
+
     End Class
 End Namespace

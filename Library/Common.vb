@@ -2,7 +2,7 @@
     Public Class Common
         <ScriptFunction("isset")>
         Public Shared Function VariableExists(rt As Runtime, name As String) As Boolean
-            Return rt.IsSet(name)
+            Return rt.Scope.Exists(name)
         End Function
 
         <ScriptFunction("typeof")>
